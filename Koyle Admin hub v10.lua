@@ -5,7 +5,7 @@ local ProtectionConfig = {
     -- 🔴 CRITICAL: This MUST exactly match the 'Secret' value in your Key System's Config!
     -- If your Key System has: Secret = "Test"
     -- Then this must also be: SecretKey = "Test"
-    SecretKey = "652269804Xd",
+    SecretKey = "0652269804Xd",
     
     -- The name of your Hub (shown in the kick message if they try to bypass)
     HubName = "Koyle Admin Hub"

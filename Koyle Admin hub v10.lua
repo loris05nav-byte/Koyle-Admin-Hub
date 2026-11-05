@@ -513,10 +513,13 @@ local function handleAimbot()
     if not states.aimbot then return end
     local isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) or (isMobile and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1))
     if isAiming then
+        local myRoot = getRoot()
+        if not myRoot then return end
         local target = nil; local dist = math.huge
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-                local d = (getRoot().Position - p.Character.Head.Position).Magnitude
+            local otherHum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+            if p ~= player and otherHum and p.Character:FindFirstChild("Head") and otherHum.Health > 0 then
+                local d = (myRoot.Position - p.Character.Head.Position).Magnitude
                 if d < dist and d < 500 then dist = d; target = p.Character.Head end
             end
         end
@@ -526,7 +529,11 @@ end
 
 -- --- BUTTON CREATOR (BRICK STYLE) ---
 local toggleCount = 0
-local function addToggle(txt, cb)
+-- Registre de toutes les options : utilisé par les sauvegardes et la réapplication après la mort.
+-- id = libellé sans son numéro (stable même si l'ordre des options change).
+local toggleRegistry = {}
+local function addToggle(txt, cb, opts)
+    opts = opts or {}
     toggleCount += 1
     local btnFrame = Instance.new("Frame", scroll)
     btnFrame.Size = UDim2.new(1, -12, 0, sizes.btn)
@@ -582,11 +589,29 @@ local function addToggle(txt, cb)
         hovered = false
         refreshToggleStyle()
     end)
-    b.MouseButton1Click:Connect(function()
-        active = not active
+    local entry = {
+        id = (txt:gsub("^%d+%.%s*", "")),
+        label = txt,
+        cb = cb,
+        -- Les fenêtres (▼) et le Reset Key ne sont pas des "commandes" à sauvegarder
+        saveable = opts.save ~= false and not txt:find("▼") and not txt:find("Reset Key"),
+        respawn = opts.respawn == true,
+    }
+    function entry.get() return active end
+    function entry.set(value)
+        value = value == true
+        if value == active then return end
+        active = value
         refreshToggleStyle()
-        cb(active)
+        local ok, err = pcall(cb, active)
+        if not ok then warn("[Koyle] " .. entry.id .. ": " .. tostring(err)) end
+    end
+    table.insert(toggleRegistry, entry)
+
+    b.MouseButton1Click:Connect(function()
+        entry.set(not active)
     end)
+    return entry
 end
 
 -- --- FEATURES LIST ---
@@ -595,6 +620,9 @@ addToggle("1. 👻 NoClip (Wall)", toggleNoClip)
 
 addToggle("2. 🦸 Fly Mode (Fix)", function(a)
     states.fly = a
+    if connections["Fly"] then connections["Fly"]:Disconnect(); connections["Fly"] = nil end
+    if flyBG then pcall(function() flyBG:Destroy() end); flyBG = nil end
+    if flyBV then pcall(function() flyBV:Destroy() end); flyBV = nil end
     if a and getRoot() then
         flyBG = Instance.new("BodyGyro", getRoot()); flyBG.maxTorque = Vector3.new(9e9,9e9,9e9)
         flyBV = Instance.new("BodyVelocity", getRoot()); flyBV.maxForce = Vector3.new(9e9,9e9,9e9)
@@ -603,10 +631,11 @@ addToggle("2. 🦸 Fly Mode (Fix)", function(a)
         if connections["Fly"] then connections["Fly"]:Disconnect() end
         if flyBG then flyBG:Destroy() end; if flyBV then flyBV:Destroy() end
     end
-end)
+end, {respawn = true})
 
 addToggle("3. 🎯 Admin Auto-Lock", function(a)
     states.aimbot = a
+    if connections["Aimbot"] then connections["Aimbot"]:Disconnect(); connections["Aimbot"] = nil end
     if a then connections["Aimbot"] = RunService.RenderStepped:Connect(handleAimbot)
     else if connections["Aimbot"] then connections["Aimbot"]:Disconnect() end end
 end)
@@ -623,8 +652,10 @@ end
 
 addToggle("4. 👁️ Player ESP", function(a)
     states.esp = a
+    if connections["ESP"] then connections["ESP"]:Disconnect(); connections["ESP"] = nil end
     if not a then 
         removePlayerESP()
+        return
     end
     connections["ESP"] = RunService.RenderStepped:Connect(function()
         if states.esp then
@@ -679,10 +710,12 @@ end
 
 addToggle("6. 💚 Instant Heal", setInstantHeal)
 
-addToggle("7. ⚡ Lightning Speed", function(a) if getHum() then getHum().WalkSpeed = a and 70 or 16 end end)
+addToggle("7. ⚡ Lightning Speed", function(a) if getHum() then getHum().WalkSpeed = a and 70 or 16 end end, {respawn = true})
 
 addToggle("8. 🦘 Infinite Jump", function(a)
     states.infjump = a
+    if connections["Jump"] then connections["Jump"]:Disconnect(); connections["Jump"] = nil end
+    if not a then return end
     connections["Jump"] = UserInputService.JumpRequest:Connect(function() if states.infjump and getHum() then getHum():ChangeState(3) end end)
 end)
 
@@ -1741,6 +1774,241 @@ local function setUntouchable(active)
 end
 
 addToggle("19. 🫥 Untouchable (Players)", setUntouchable)
+
+-- --- RÉAPPLICATION APRÈS LA MORT ---
+-- Certaines options sont liées au personnage (Fly crée des forces dans l'ancien corps, la vitesse
+-- est remise à 16 par Roblox...). À chaque respawn, on les relance proprement si elles sont actives.
+connections["Respawn"] = player.CharacterAdded:Connect(function(character)
+    character:WaitForChild("Humanoid", 10)
+    character:WaitForChild("HumanoidRootPart", 10)
+    task.wait(0.15)
+    if character ~= player.Character then return end
+    for _, entry in ipairs(toggleRegistry) do
+        if entry.respawn and entry.get() then
+            pcall(entry.cb, false)
+            local ok, err = pcall(entry.cb, true)
+            if not ok then warn("[Koyle] respawn " .. entry.id .. ": " .. tostring(err)) end
+        end
+    end
+end)
+
+-- --- BARRE GAUCHE DÉPLIABLE + SAUVEGARDES (5 SLOTS) ---
+local sidebar = {
+    SAVE_FILE = "koyle_hub_saves.json",
+    SAVE_ATTRIBUTE = "koyle_hub_saves",
+    SLOT_COUNT = 5,
+    BAR_W = isMobile and 120 or 150,
+    PANEL_W = isMobile and 240 or 300,
+    ROW_H = isMobile and 42 or 50,
+    TOP = -150,
+    barOpen = false,
+    slots = {},
+    rows = {},
+}
+
+function sidebar.readSaves()
+    local raw = nil
+    if readfile and isfile then
+        pcall(function()
+            if isfile(sidebar.SAVE_FILE) then raw = readfile(sidebar.SAVE_FILE) end
+        end)
+    end
+    raw = raw or player:GetAttribute(sidebar.SAVE_ATTRIBUTE)
+    if raw then
+        local ok, data = pcall(HttpService.JSONDecode, HttpService, raw)
+        if ok and type(data) == "table" then sidebar.slots = data end
+    end
+end
+
+function sidebar.writeSaves()
+    local ok, raw = pcall(HttpService.JSONEncode, HttpService, sidebar.slots)
+    if not ok then return false end
+    if writefile then pcall(writefile, sidebar.SAVE_FILE, raw) end
+    pcall(function() player:SetAttribute(sidebar.SAVE_ATTRIBUTE, raw) end)
+    return true
+end
+
+function sidebar.slotKey(index) return "slot" .. index end
+
+function sidebar.setStatus(text, color)
+    sidebar.status.Text = text
+    sidebar.status.TextColor3 = color or BRICK.TextSoft
+end
+
+function sidebar.refreshRow(index)
+    local row = sidebar.rows[index]
+    local data = sidebar.slots[sidebar.slotKey(index)]
+    if data and type(data.options) == "table" then
+        local when = data.time and os.date("%d/%m %H:%M", data.time) or ""
+        row.info.Text = #data.options .. " option(s)  •  " .. when
+        row.load.BackgroundColor3 = BRICK.Orange
+        row.loadEdge.Color = BRICK.OrangeDark
+    else
+        row.info.Text = "Empty"
+        row.load.BackgroundColor3 = BRICK.BlueDeep
+        row.loadEdge.Color = BRICK.BlueDark
+    end
+end
+
+function sidebar.saveSlot(index)
+    local options = {}
+    for _, entry in ipairs(toggleRegistry) do
+        if entry.saveable and entry.get() then
+            table.insert(options, entry.id)
+        end
+    end
+    sidebar.slots[sidebar.slotKey(index)] = { options = options, time = os.time() }
+    sidebar.writeSaves()
+    sidebar.refreshRow(index)
+    sidebar.setStatus("Slot " .. index .. " saved (" .. #options .. " options)", BRICK.Green)
+end
+
+function sidebar.loadSlot(index)
+    local data = sidebar.slots[sidebar.slotKey(index)]
+    if not data or type(data.options) ~= "table" then
+        sidebar.setStatus("Slot " .. index .. " is empty", Color3.fromRGB(255, 200, 90))
+        return
+    end
+    local wanted = {}
+    for _, id in ipairs(data.options) do wanted[id] = true end
+
+    -- On coupe d'abord ce qui ne fait pas partie de la sauvegarde, puis on active le reste.
+    -- entry.set passe par la même fonction que le clic : rien n'est lié à un ancien personnage,
+    -- et les options "respawn" (Fly, Speed) seront relancées automatiquement après une mort.
+    local applied = 0
+    for _, entry in ipairs(toggleRegistry) do
+        if entry.saveable and not wanted[entry.id] then entry.set(false) end
+    end
+    for _, entry in ipairs(toggleRegistry) do
+        if entry.saveable and wanted[entry.id] then
+            entry.set(true)
+            applied += 1
+        end
+    end
+    sidebar.setStatus("Slot " .. index .. " loaded (" .. applied .. " options)", BRICK.Green)
+end
+
+-- Onglet toujours visible collé au bord gauche
+sidebar.tab = Instance.new("TextButton", screenGui)
+sidebar.tab.Name = "SidebarTab"
+sidebar.tab.Size = UDim2.new(0, 34, 0, 64)
+sidebar.tab.Position = UDim2.new(0, -6, 0.5, sidebar.TOP)
+sidebar.tab.Text = ">"
+brickIcon(sidebar.tab, BRICK.Orange, BRICK.OrangeDark, 22)
+
+-- Barre dépliable (liste des sections : pour l'instant "Save")
+sidebar.bar = Instance.new("Frame", screenGui)
+sidebar.bar.Name = "Sidebar"
+sidebar.bar.Size = UDim2.new(0, sidebar.BAR_W, 0, 116)
+sidebar.bar.Position = UDim2.new(0, 36, 0.5, sidebar.TOP)
+sidebar.bar.Visible = false
+brickPanel(sidebar.bar, sidebar.BAR_W, 116)
+
+sidebar.barTitle = Instance.new("TextLabel", sidebar.bar)
+sidebar.barTitle.Position = UDim2.new(0, 7, 0, 7)
+sidebar.barTitle.Size = UDim2.new(1, -14, 0, 32)
+sidebar.barTitle.Text = "MENU"
+brickify(sidebar.barTitle, BRICK.Orange, BRICK.OrangeDark, 8, 3)
+brickText(sidebar.barTitle, 16)
+
+sidebar.saveSection = Instance.new("TextButton", sidebar.bar)
+sidebar.saveSection.Position = UDim2.new(0, 9, 0, 50)
+sidebar.saveSection.Size = UDim2.new(1, -18, 0, 40)
+sidebar.saveSection.Text = "💾 SAVE"
+local saveSectionEdge = brickify(sidebar.saveSection, BRICK.BlueLight, BRICK.BlueDark, 8, 3)
+brickText(sidebar.saveSection, isMobile and 14 or 16)
+sidebar.saveSection.AutoButtonColor = false
+
+-- Panneau des sauvegardes
+local panelH = 52 + sidebar.SLOT_COUNT * (sidebar.ROW_H + 8) + 34
+sidebar.panel = Instance.new("Frame", screenGui)
+sidebar.panel.Name = "SavePanel"
+sidebar.panel.Size = UDim2.new(0, sidebar.PANEL_W, 0, panelH)
+sidebar.panel.Position = UDim2.new(0, 36 + sidebar.BAR_W + 10, 0.5, sidebar.TOP)
+sidebar.panel.Visible = false
+brickPanel(sidebar.panel, sidebar.PANEL_W, panelH)
+
+sidebar.panelTitle = Instance.new("TextLabel", sidebar.panel)
+sidebar.panelTitle.Position = UDim2.new(0, 8, 0, 8)
+sidebar.panelTitle.Size = UDim2.new(1, -16, 0, 36)
+sidebar.panelTitle.Text = "💾 SAVES"
+brickify(sidebar.panelTitle, BRICK.Orange, BRICK.OrangeDark, 8, 3)
+brickText(sidebar.panelTitle, 18)
+makeDraggable(sidebar.panel, sidebar.panelTitle)
+
+for index = 1, sidebar.SLOT_COUNT do
+    local row = {}
+    row.frame = Instance.new("Frame", sidebar.panel)
+    row.frame.Size = UDim2.new(1, -16, 0, sidebar.ROW_H)
+    row.frame.Position = UDim2.new(0, 8, 0, 52 + (index - 1) * (sidebar.ROW_H + 8))
+    brickify(row.frame, BRICK.BlueLight, BRICK.BlueDark, 8, 3)
+
+    local btnW = isMobile and 46 or 58
+    row.name = Instance.new("TextLabel", row.frame)
+    row.name.BackgroundTransparency = 1
+    row.name.Position = UDim2.new(0, 10, 0, 4)
+    row.name.Size = UDim2.new(1, -(2 * btnW + 26), 0.5, -2)
+    row.name.TextXAlignment = Enum.TextXAlignment.Left
+    row.name.Text = "SLOT " .. index
+    brickText(row.name, isMobile and 13 or 15)
+
+    row.info = Instance.new("TextLabel", row.frame)
+    row.info.BackgroundTransparency = 1
+    row.info.Position = UDim2.new(0, 10, 0.5, 0)
+    row.info.Size = UDim2.new(1, -(2 * btnW + 26), 0.5, -4)
+    row.info.TextXAlignment = Enum.TextXAlignment.Left
+    row.info.TextTruncate = Enum.TextTruncate.AtEnd
+    brickText(row.info, isMobile and 10 or 11, BRICK.TextSoft)
+
+    row.save = Instance.new("TextButton", row.frame)
+    row.save.Size = UDim2.new(0, btnW, 1, -12)
+    row.save.Position = UDim2.new(1, -(2 * btnW + 14), 0, 6)
+    row.save.Text = "SAVE"
+    brickIcon(row.save, BRICK.Green, BRICK.GreenDark, isMobile and 11 or 13)
+
+    row.load = Instance.new("TextButton", row.frame)
+    row.load.Size = UDim2.new(0, btnW, 1, -12)
+    row.load.Position = UDim2.new(1, -(btnW + 7), 0, 6)
+    row.load.Text = "LOAD"
+    brickIcon(row.load, BRICK.Orange, BRICK.OrangeDark, isMobile and 11 or 13)
+    row.loadEdge = row.load:FindFirstChild("BrickEdge")
+
+    row.save.MouseButton1Click:Connect(function() sidebar.saveSlot(index) end)
+    row.load.MouseButton1Click:Connect(function() sidebar.loadSlot(index) end)
+    sidebar.rows[index] = row
+end
+
+sidebar.status = Instance.new("TextLabel", sidebar.panel)
+sidebar.status.BackgroundTransparency = 1
+sidebar.status.Position = UDim2.new(0, 10, 1, -32)
+sidebar.status.Size = UDim2.new(1, -20, 0, 26)
+sidebar.status.TextWrapped = true
+brickText(sidebar.status, isMobile and 11 or 13, BRICK.TextSoft)
+sidebar.setStatus("Save your selected options")
+
+function sidebar.setBarOpen(open)
+    sidebar.barOpen = open
+    sidebar.bar.Visible = open
+    sidebar.tab.Text = open and "<" or ">"
+    if not open then
+        sidebar.panel.Visible = false
+        sidebar.saveSection.BackgroundColor3 = BRICK.BlueLight
+        saveSectionEdge.Color = BRICK.BlueDark
+    end
+end
+
+sidebar.tab.MouseButton1Click:Connect(function()
+    sidebar.setBarOpen(not sidebar.barOpen)
+end)
+sidebar.saveSection.MouseButton1Click:Connect(function()
+    local show = not sidebar.panel.Visible
+    sidebar.panel.Visible = show
+    sidebar.saveSection.BackgroundColor3 = show and BRICK.Orange or BRICK.BlueLight
+    saveSectionEdge.Color = show and BRICK.OrangeDark or BRICK.BlueDark
+end)
+
+sidebar.readSaves()
+for index = 1, sidebar.SLOT_COUNT do sidebar.refreshRow(index) end
 
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false

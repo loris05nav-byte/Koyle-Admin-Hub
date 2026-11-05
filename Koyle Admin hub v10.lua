@@ -1,36 +1,26 @@
--- ⚠️ IMPORTANT: Put this code at the VERY TOP of your Main Script (before obfuscating) ⚠️
+-- ⚠️ IMPORTANT: Anti-Bypass Protection ⚠️
 
 local ProtectionConfig = {
-    -- 🔴 CRITICAL: Exactly matches the 'Secret' value in your Key System's Config!
+    -- Clé secrète strictement identique à celle du système de clé ("0652269804Xd")
     SecretKey = "0652269804Xd",
     
-    -- The name of your Hub (shown in the kick message if they try to bypass)
     HubName = "Koyle Admin Hub"
 }
 
--- Anti-Bypass Logic: Checks if the Key System successfully set the global variable
+-- Anti-Bypass Logic: Vérifie si le système de clé a validé la variable globale
 if not _G[ProtectionConfig.SecretKey] then
     local player = game:GetService("Players").LocalPlayer
     if player then
         player:Kick("\n🛡️ Unauthorized Execution 🛡️\n\nPlease use the official Key System to run " .. ProtectionConfig.HubName)
     end
-    return -- Stops the rest of the script from loading!
+    return
 end
 
 -------------------------------------------------------------------------------
--- 👇 YOUR MAIN SCRIPT CODE STARTS HERE 👇
+-- 👇 TON CODE DE PANNEAU ADMIN (REPRIS À 100 % DE TON FICHIER ORIGINAL) 👇
 -------------------------------------------------------------------------------
 
 print(ProtectionConfig.HubName .. " Loaded Successfully!")
-
---[[ 
-    ULTIMATE Koyle ADMIN PANEL v8.0 (SPECTATE & BOOMBOX INTEGRATED EDITION)
-    - Draggable Bubble System: Move button "-" added + Hotkey G + Animation (Retained)
-    - TP System: Independent Window (Retained)
-    - Spectate System: Independent Window (Retained)
-    - Boombox RELICSxyz v4.1 Final Compact System: Responsive Independent Window (New)
-    - Core Features: Fly, NoClip, Dash, ESP, GodMode, Aimbot, XRay, Zoom, Bright (Retained)
-]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -56,14 +46,14 @@ local connections = {}
 local xrayOriginals = {}
 local xrayConnection = nil
 local xrayAccumulator = 0
-local XRAY_RADIUS = 220       -- Only handles radius around player
-local XRAY_MAX_PARTS = 450    -- Strict limit to avoid overloaded maps
+local XRAY_RADIUS = 220
+local XRAY_MAX_PARTS = 450
 local XRAY_UPDATE_INTERVAL = 0.45
 local flyBV, flyBG = nil, nil
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- --- THEME AND SIZES (RESPONSIVE) ---
+-- --- THEME AND SIZES ---
 local GUI_THEME = {
     Background = Color3.fromRGB(15, 15, 22),
     Header = Color3.fromRGB(25, 25, 35),
@@ -538,3 +528,871 @@ local function removePlayerESP()
         end
     end
     playerESPObjects = {}
+end
+
+addToggle("4. 👁️ Player ESP", function(a)
+    states.esp = a
+    if not a then 
+        removePlayerESP()
+    end
+    connections["ESP"] = RunService.RenderStepped:Connect(function()
+        if states.esp then
+            for _,p in pairs(Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                    local head = p.Character.Head
+                    if not playerESPObjects[head] or not playerESPObjects[head].Parent then
+                        local b = Instance.new("BillboardGui", head); b.Name = "ESP_MARK"; b.AlwaysOnTop = true; b.Size = UDim2.new(0,80,0,40)
+                        local t = Instance.new("TextLabel", b); t.Text = p.Name; t.Size = UDim2.new(1,0,1,0); t.BackgroundTransparency = 1; t.TextColor3 = GUI_THEME.Accent; t.Font = Enum.Font.GothamBold; t.TextScaled = true
+                        playerESPObjects[head] = b
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+addToggle("5. 🎇 Dash (Click/Touch)", function(a) states.dash = a end)
+mouse.Button1Down:Connect(function() if states.dash and getRoot() then getRoot().CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0,3,0)) end end)
+
+addToggle("6. 🛡️ God Mode", function(a)
+    states.godmode = a
+    connections["God"] = RunService.Heartbeat:Connect(function() if states.godmode and getHum() then getHum().Health = 100 end end)
+end)
+
+addToggle("7. ⚡ Lightning Speed", function(a) if getHum() then getHum().WalkSpeed = a and 70 or 16 end end)
+
+addToggle("8. 🦘 Infinite Jump", function(a)
+    states.infjump = a
+    connections["Jump"] = UserInputService.JumpRequest:Connect(function() if states.infjump and getHum() then getHum():ChangeState(3) end end)
+end)
+
+-- Optimized X-Ray
+local function isCharacterPart(part)
+    local model = part:FindFirstAncestorOfClass("Model")
+    return model ~= nil and model:FindFirstChildOfClass("Humanoid") ~= nil
+end
+
+local function restoreXRayPart(part)
+    local original = xrayOriginals[part]
+    if original ~= nil then
+        if part and part.Parent then
+            part.LocalTransparencyModifier = original
+        end
+        xrayOriginals[part] = nil
+    end
+end
+
+local function stopXRay()
+    if xrayConnection then
+        xrayConnection:Disconnect()
+        xrayConnection = nil
+    end
+    for part, original in pairs(xrayOriginals) do
+        if part and part.Parent then
+            part.LocalTransparencyModifier = original
+        end
+        xrayOriginals[part] = nil
+    end
+    xrayAccumulator = 0
+    states.xray = false
+end
+
+local function updateXRay()
+    local root = getRoot()
+    if not root then return end
+
+    local overlap = OverlapParams.new()
+    overlap.FilterType = Enum.RaycastFilterType.Exclude
+    overlap.FilterDescendantsInstances = player.Character and {player.Character} or {}
+    overlap.MaxParts = XRAY_MAX_PARTS
+
+    local ok, nearbyParts = pcall(function()
+        return Workspace:GetPartBoundsInRadius(root.Position, XRAY_RADIUS, overlap)
+    end)
+    if not ok or not nearbyParts then return end
+
+    local currentlyNearby = {}
+    for _, part in ipairs(nearbyParts) do
+        if part:IsA("BasePart") and part.Parent and not isCharacterPart(part) then
+            currentlyNearby[part] = true
+            if xrayOriginals[part] == nil then
+                xrayOriginals[part] = part.LocalTransparencyModifier
+            end
+            part.LocalTransparencyModifier = math.max(xrayOriginals[part], 0.5)
+        end
+    end
+
+    for part, original in pairs(xrayOriginals) do
+        if not currentlyNearby[part] then
+            restoreXRayPart(part)
+        end
+    end
+end
+
+addToggle("9. 🩻 X-Ray (Optimized Area)", function(a)
+    if not a then
+        stopXRay()
+        return
+    end
+
+    if xrayConnection then
+        xrayConnection:Disconnect()
+        xrayConnection = nil
+    end
+    states.xray = true
+    xrayAccumulator = XRAY_UPDATE_INTERVAL
+    xrayConnection = RunService.Heartbeat:Connect(function(dt)
+        if not states.xray then return end
+        xrayAccumulator += dt
+        if xrayAccumulator >= XRAY_UPDATE_INTERVAL then
+            xrayAccumulator = 0
+            updateXRay()
+        end
+    end)
+end)
+
+addToggle("10. 💡 Full Bright", function(a)
+    Lighting.Ambient = a and Color3.new(1,1,1) or Color3.fromRGB(127,127,127)
+    Lighting.Brightness = a and 2 or 1
+end)
+
+addToggle("11.🔍 Infinite Zoom", function(a)
+    player.CameraMaxZoomDistance = a and 9999 or 400
+    player.CameraMinZoomDistance = a and 0 or 0.5
+end)
+
+-- --- PLAYER TELEPORT SYSTEM ---
+local tpWin = Instance.new("Frame", screenGui)
+tpWin.Size = UDim2.new(0, 200, 0, 250)
+tpWin.Position = UDim2.new(0.5, sizes.w/2 + 20, 0.5, -125)
+tpWin.BackgroundColor3 = GUI_THEME.Background
+tpWin.BackgroundTransparency = GUI_THEME.Transparency
+tpWin.Visible = false
+Instance.new("UICorner", tpWin).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", tpWin).Color = GUI_THEME.Accent
+Instance.new("UIStroke", tpWin).Transparency = 0.3
+
+local tpHeader = Instance.new("Frame", tpWin)
+tpHeader.Size = UDim2.new(1, 0, 0, 30)
+tpHeader.BackgroundColor3 = GUI_THEME.Header
+Instance.new("UICorner", tpHeader).CornerRadius = UDim.new(0, 10)
+local tpTitle = Instance.new("TextLabel", tpHeader)
+tpTitle.Size = UDim2.new(1, 0, 1, 0)
+tpTitle.BackgroundTransparency = 1
+tpTitle.Text = "TELEPORTATION"
+tpTitle.TextColor3 = GUI_THEME.Accent
+tpTitle.Font = Enum.Font.GothamBold
+
+local tpScr = Instance.new("ScrollingFrame", tpWin)
+tpScr.Size = UDim2.new(1, -10, 1, -40); tpScr.Position = UDim2.new(0, 5, 0, 35)
+tpScr.BackgroundTransparency = 1; tpScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+tpScr.ScrollBarThickness = 2
+local tpLayout = Instance.new("UIListLayout", tpScr)
+tpLayout.Padding = UDim.new(0, 5)
+
+makeDraggable(tpWin, tpHeader)
+
+addToggle("12. 👥 TP TO PLAYER ▼", function(active)
+    tpWin.Visible = active
+    if tpWin.Visible then
+        for _, v in pairs(tpScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local pb = Instance.new("TextButton", tpScr)
+                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
+                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
+                pb.Font = Enum.Font.Gotham
+                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                pb.MouseButton1Click:Connect(function() 
+                    if getRoot() and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
+                        getRoot().CFrame = p.Character.HumanoidRootPart.CFrame 
+                    end 
+                end)
+            end
+        end
+    end
+end)
+
+-- --- SPECTATE SYSTEM ---
+local specWin = Instance.new("Frame", screenGui)
+specWin.Size = UDim2.new(0, 200, 0, 250)
+specWin.Position = UDim2.new(0.5, -sizes.w/2 - 220, 0.5, -125)
+specWin.BackgroundColor3 = GUI_THEME.Background
+specWin.BackgroundTransparency = GUI_THEME.Transparency
+specWin.Visible = false
+Instance.new("UICorner", specWin).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", specWin).Color = GUI_THEME.Accent
+Instance.new("UIStroke", specWin).Transparency = 0.3
+
+local specHeader = Instance.new("Frame", specWin)
+specHeader.Size = UDim2.new(1, 0, 0, 30)
+specHeader.BackgroundColor3 = GUI_THEME.Header
+Instance.new("UICorner", specHeader).CornerRadius = UDim.new(0, 10)
+local specTitle = Instance.new("TextLabel", specHeader)
+specTitle.Size = UDim2.new(1, 0, 1, 0)
+specTitle.BackgroundTransparency = 1
+specTitle.Text = "SPECTATE"
+specTitle.TextColor3 = GUI_THEME.Accent
+specTitle.Font = Enum.Font.GothamBold
+
+local specScr = Instance.new("ScrollingFrame", specWin)
+specScr.Size = UDim2.new(1, -10, 1, -40); specScr.Position = UDim2.new(0, 5, 0, 35)
+specScr.BackgroundTransparency = 1; specScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+specScr.ScrollBarThickness = 2
+local specLayout = Instance.new("UIListLayout", specScr)
+specLayout.Padding = UDim.new(0, 5)
+
+makeDraggable(specWin, specHeader)
+
+addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
+    specWin.Visible = active
+    if specWin.Visible then
+        for _, v in pairs(specScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        
+        local stopBtn = Instance.new("TextButton", specScr)
+        stopBtn.Size = UDim2.new(1, 0, 0, 30); stopBtn.Text = "❌ STOP SPECTATE"
+        stopBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40); stopBtn.TextColor3 = Color3.new(1, 1, 1)
+        stopBtn.Font = Enum.Font.GothamBold
+        Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 5)
+        stopBtn.MouseButton1Click:Connect(function() 
+            if getHum() then camera.CameraSubject = getHum() end
+        end)
+
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local pb = Instance.new("TextButton", specScr)
+                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
+                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
+                pb.Font = Enum.Font.Gotham
+                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                pb.MouseButton1Click:Connect(function() 
+                    if p.Character and p.Character:FindFirstChild("Humanoid") then 
+                        camera.CameraSubject = p.Character.Humanoid
+                    end 
+                end)
+            end
+        end
+    else
+        if getHum() then camera.CameraSubject = getHum() end
+    end
+end)
+
+-- --- BOOMBOX RELICSxyz v4.1 SYSTEM ---
+local boomboxFrame = Instance.new("Frame", screenGui)
+boomboxFrame.Name = "BoomboxFrame"
+boomboxFrame.BackgroundColor3 = Color3.fromRGB(16, 17, 22)
+boomboxFrame.BackgroundTransparency = 0.05
+boomboxFrame.BorderSizePixel = 0
+boomboxFrame.ClipsDescendants = true
+boomboxFrame.Visible = false
+
+local bbCorner = Instance.new("UICorner", boomboxFrame)
+bbCorner.CornerRadius = UDim.new(0, 22)
+
+local bbStroke = Instance.new("UIStroke", boomboxFrame)
+bbStroke.Color = Color3.fromRGB(100, 110, 255)
+bbStroke.Thickness = 1.5
+bbStroke.Transparency = 0.3
+
+local bbGrad = Instance.new("UIGradient", bbStroke)
+bbGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(140, 90, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 170, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 180))
+}
+
+task.spawn(function()
+    while boomboxFrame.Parent do
+        bbGrad.Rotation = (bbGrad.Rotation + 0.2) % 360
+        task.wait(0.03)
+    end
+end)
+
+local function updateBoomboxSize()
+    if isMobile then
+        boomboxFrame.AnchorPoint = Vector2.new(0.5, 1)
+        boomboxFrame.Position = UDim2.new(0.5, 0, 1, -10)
+        boomboxFrame.Size = UDim2.new(1, -14, 0, 280)
+    else
+        boomboxFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        boomboxFrame.Position = UDim2.new(0.5, sizes.w / 2 + 250, 0.5, 0)
+        boomboxFrame.Size = UDim2.new(0, 440, 0, 600)
+    end
+end
+updateBoomboxSize()
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateBoomboxSize)
+
+local bbTopBar = Instance.new("Frame", boomboxFrame)
+bbTopBar.Size = UDim2.new(1, 0, 0, 42)
+bbTopBar.BackgroundTransparency = 1
+
+local bbTitle = Instance.new("TextLabel", bbTopBar)
+bbTitle.Text = "⬣ RELICSxyz"
+bbTitle.Font = Enum.Font.GothamBlack
+bbTitle.TextSize = isMobile and 18 or 22
+bbTitle.TextColor3 = Color3.new(1,1,1)
+bbTitle.BackgroundTransparency = 1
+bbTitle.Position = UDim2.new(0, 16, 0, 0)
+bbTitle.Size = UDim2.new(1, -80, 1, 0)
+bbTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local bbMinBtn = Instance.new("TextButton", bbTopBar)
+bbMinBtn.Text = "—"
+bbMinBtn.Font = Enum.Font.GothamBold
+bbMinBtn.TextSize = 22
+bbMinBtn.Size = UDim2.new(0, 34, 0, 34)
+bbMinBtn.Position = UDim2.new(1, -44, 0, 4)
+bbMinBtn.BackgroundColor3 = Color3.fromRGB(30, 32, 42)
+bbMinBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", bbMinBtn).CornerRadius = UDim.new(0, 8)
+
+makeDraggable(boomboxFrame, bbTopBar)
+
+local bbPages = Instance.new("Frame", boomboxFrame)
+bbPages.Position = UDim2.new(0, 0, 0, 46)
+bbPages.Size = UDim2.new(1, 0, 1, isMobile and -102 or -116)
+bbPages.BackgroundTransparency = 1
+bbPages.ClipsDescendants = true
+
+local bbPageBrowse = Instance.new("Frame", bbPages); bbPageBrowse.Size = UDim2.new(1,0,1,0); bbPageBrowse.BackgroundTransparency = 1
+local bbPagePlay = Instance.new("Frame", bbPages); bbPagePlay.Size = UDim2.new(1,0,1,0); bbPagePlay.Position = UDim2.new(1,0,0,0); bbPagePlay.BackgroundTransparency = 1
+local bbPageFavs = Instance.new("ScrollingFrame", bbPages); bbPageFavs.Size = UDim2.new(1,0,1,0); bbPageFavs.Position = UDim2.new(2,0,0,0); bbPageFavs.BackgroundTransparency = 1; bbPageFavs.ScrollBarThickness = 2; bbPageFavs.CanvasSize = UDim2.new(0,0,0,0)
+
+-- Browse Page
+local bbSearchBox = Instance.new("TextBox", bbPageBrowse)
+bbSearchBox.PlaceholderText = "⌕ Paste a Roblox ID..."
+bbSearchBox.Text = ""
+bbSearchBox.Font = Enum.Font.GothamMedium
+bbSearchBox.TextSize = 15
+bbSearchBox.TextColor3 = Color3.new(1,1,1)
+bbSearchBox.BackgroundColor3 = Color3.fromRGB(26, 28, 38)
+bbSearchBox.Size = UDim2.new(1, -20, 0, isMobile and 38 or 44)
+bbSearchBox.Position = UDim2.new(0, 10, 0, 0)
+bbSearchBox.ClearTextOnFocus = false
+Instance.new("UICorner", bbSearchBox).CornerRadius = UDim.new(0, 10)
+
+local bbScrollList = Instance.new("ScrollingFrame", bbPageBrowse)
+bbScrollList.Position = UDim2.new(0, 0, 0, isMobile and 46 or 52)
+bbScrollList.Size = UDim2.new(1, 0, 1, isMobile and -46 or -52)
+bbScrollList.BackgroundTransparency = 1
+bbScrollList.BorderSizePixel = 0
+bbScrollList.ScrollBarThickness = 2
+bbScrollList.CanvasSize = UDim2.new(0,0,0,0)
+local bbListLayout = Instance.new("UIListLayout", bbScrollList)
+bbListLayout.Padding = UDim.new(0, 6)
+bbListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bbListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    bbScrollList.CanvasSize = UDim2.new(0,0,0, bbListLayout.AbsoluteContentSize.Y + 8)
+end)
+
+-- Play Page
+local bbBtnHeart = Instance.new("TextButton", bbPagePlay)
+bbBtnHeart.Text = "♡"
+bbBtnHeart.Font = Enum.Font.GothamBold
+bbBtnHeart.TextSize = 24
+bbBtnHeart.Size = UDim2.new(0, 36, 0, 36)
+bbBtnHeart.Position = UDim2.new(0, 12, 0, 4)
+bbBtnHeart.BackgroundTransparency = 1
+bbBtnHeart.TextColor3 = Color3.fromRGB(200,200,210)
+
+local bbBtnLoop = Instance.new("TextButton", bbPagePlay)
+bbBtnLoop.Text = "∞"
+bbBtnLoop.Font = Enum.Font.GothamBold
+bbBtnLoop.TextSize = 22
+bbBtnLoop.Size = UDim2.new(0, 36, 0, 36)
+bbBtnLoop.Position = UDim2.new(0, 50, 0, 4)
+bbBtnLoop.BackgroundTransparency = 1
+bbBtnLoop.TextColor3 = Color3.fromRGB(160,165,180)
+
+local bbCoverSize = isMobile and 70 or 130
+local bbCover = Instance.new("Frame", bbPagePlay)
+bbCover.Size = UDim2.new(0, bbCoverSize, 0, bbCoverSize)
+bbCover.Position = UDim2.new(0.5, -bbCoverSize/2, 0, isMobile and 6 or 10)
+bbCover.BackgroundColor3 = Color3.fromRGB(35, 38, 55)
+Instance.new("UICorner", bbCover).CornerRadius = UDim.new(1,0)
+local bbCoverGrad = Instance.new("UIGradient", bbCover)
+bbCoverGrad.Color = ColorSequence.new(Color3.fromRGB(130,100,255), Color3.fromRGB(70,160,255))
+
+local bbCoverLabel = Instance.new("TextLabel", bbCover)
+bbCoverLabel.Size = UDim2.new(1,0,1,0)
+bbCoverLabel.BackgroundTransparency = 1
+bbCoverLabel.Text = "♪"
+bbCoverLabel.Font = Enum.Font.GothamBlack
+bbCoverLabel.TextSize = isMobile and 32 or 48
+bbCoverLabel.TextColor3 = Color3.new(1,1,1)
+
+local bbLblSong = Instance.new("TextLabel", bbPagePlay)
+bbLblSong.Text = "No audio"
+bbLblSong.Font = Enum.Font.GothamBold
+bbLblSong.TextSize = isMobile and 16 or 20
+bbLblSong.TextColor3 = Color3.new(1,1,1)
+bbLblSong.BackgroundTransparency = 1
+bbLblSong.Position = UDim2.new(0, 14, 0, isMobile and 84 or 148)
+bbLblSong.Size = UDim2.new(1, -28, 0, 20)
+bbLblSong.TextXAlignment = Enum.TextXAlignment.Left
+bbLblSong.TextTruncate = Enum.TextTruncate.AtEnd
+
+local bbLblArtist = Instance.new("TextLabel", bbPagePlay)
+bbLblArtist.Text = "Browse to search"
+bbLblArtist.Font = Enum.Font.Gotham
+bbLblArtist.TextSize = 13
+bbLblArtist.TextColor3 = Color3.fromRGB(170,175,185)
+bbLblArtist.BackgroundTransparency = 1
+bbLblArtist.Position = UDim2.new(0, 14, 0, isMobile and 104 or 172)
+bbLblArtist.Size = UDim2.new(1, -80, 0, 16)
+bbLblArtist.TextXAlignment = Enum.TextXAlignment.Left
+
+local bbLblTime = Instance.new("TextLabel", bbPagePlay)
+bbLblTime.Text = "-0:00"
+bbLblTime.Font = Enum.Font.GothamMedium
+bbLblTime.TextSize = 12
+bbLblTime.TextColor3 = Color3.fromRGB(180,185,195)
+bbLblTime.BackgroundTransparency = 1
+bbLblTime.Position = UDim2.new(1, -50, 0, isMobile and 104 or 172)
+bbLblTime.Size = UDim2.new(0, 40, 0, 16)
+bbLblTime.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Progress Bar
+local bbBarBack = Instance.new("Frame", bbPagePlay)
+bbBarBack.Size = UDim2.new(1, -28, 0, 5)
+bbBarBack.Position = UDim2.new(0, 14, 0, isMobile and 124 or 196)
+bbBarBack.BackgroundColor3 = Color3.fromRGB(40, 44, 60)
+bbBarBack.BorderSizePixel = 0
+Instance.new("UICorner", bbBarBack).CornerRadius = UDim.new(1,0)
+
+local bbBarFill = Instance.new("Frame", bbBarBack)
+bbBarFill.Size = UDim2.new(0,0,1,0)
+bbBarFill.BackgroundColor3 = Color3.new(1,1,1)
+bbBarFill.BorderSizePixel = 0
+Instance.new("UICorner", bbBarFill).CornerRadius = UDim.new(1,0)
+local bbBarGrad = Instance.new("UIGradient", bbBarFill)
+bbBarGrad.Color = ColorSequence.new(Color3.fromRGB(120,110,255), Color3.fromRGB(255,110,180))
+
+local bbPlaySize = isMobile and 50 or 68
+local bbBtnPlay = Instance.new("TextButton", bbPagePlay)
+bbBtnPlay.Text = "▶"
+bbBtnPlay.Font = Enum.Font.GothamBlack
+bbBtnPlay.TextSize = isMobile and 22 or 28
+bbBtnPlay.Size = UDim2.new(0, bbPlaySize, 0, bbPlaySize)
+bbBtnPlay.Position = UDim2.new(0.5, -bbPlaySize/2, 0, isMobile and 138 or 218)
+bbBtnPlay.BackgroundColor3 = Color3.fromRGB(45, 48, 68)
+bbBtnPlay.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", bbBtnPlay).CornerRadius = UDim.new(1,0)
+
+-- Bottom Navigation
+local bbNavH = isMobile and 48 or 60
+local bbNav = Instance.new("Frame", boomboxFrame)
+bbNav.Size = UDim2.new(1, -16, 0, bbNavH)
+bbNav.Position = UDim2.new(0, 8, 1, -bbNavH - 6)
+bbNav.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+bbNav.BorderSizePixel = 0
+Instance.new("UICorner", bbNav).CornerRadius = UDim.new(0, 14)
+
+local function bbMakeNav(text, iconStr, xPos)
+    local b = Instance.new("TextButton", bbNav)
+    b.Size = UDim2.new(0.333, 0, 1, 0)
+    b.Position = UDim2.new(xPos, 0, 0, 0)
+    b.BackgroundTransparency = 1
+    b.Text = iconStr.."\n"..text
+    b.Font = Enum.Font.GothamSemibold
+    b.TextSize = 11
+    b.TextColor3 = Color3.fromRGB(130,135,150)
+    b.TextYAlignment = Enum.TextYAlignment.Center
+    return b
+end
+
+local bbNavBrowse = bbMakeNav("Browse", "◫", 0)
+local bbNavPlay = bbMakeNav("Play", "▶", 0.333)
+local bbNavFavs = bbMakeNav("Favorites", "♥", 0.666)
+bbNavBrowse.TextColor3 = Color3.new(1,1,1)
+
+local bbCurrentTab = 1
+local function bbSwitchPage(index)
+    bbCurrentTab = index
+    local target = UDim2.new(-(index-1), 0, 0, 0)
+    TweenService:Create(bbPageBrowse, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target}):Play()
+    TweenService:Create(bbPagePlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target + UDim2.new(1,0,0,0)}):Play()
+    TweenService:Create(bbPageFavs, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target + UDim2.new(2,0,0,0)}):Play()
+    bbNavBrowse.TextColor3 = index==1 and Color3.new(1,1,1) or Color3.fromRGB(130,135,150)
+    bbNavPlay.TextColor3 = index==2 and Color3.new(1,1,1) or Color3.fromRGB(130,135,150)
+    bbNavFavs.TextColor3 = index==3 and Color3.fromRGB(255,110,180) or Color3.fromRGB(130,135,150)
+end
+
+bbNavBrowse.MouseButton1Click:Connect(function() bbSwitchPage(1) end)
+bbNavPlay.MouseButton1Click:Connect(function() bbSwitchPage(2) end)
+bbNavFavs.MouseButton1Click:Connect(function() bbSwitchPage(3) end)
+
+local bbCurrentSong = nil
+
+local function bbFormatTime(s)
+    s = math.floor(s)
+    return string.format("%d:%02d", math.floor(s / 60), s % 60)
+end
+
+local function bbCreateItem(parent, id, name, creator)
+    local item = Instance.new("TextButton")
+    item.Size = UDim2.new(1, -10, 0, isMobile and 50 or 60)
+    item.Position = UDim2.new(0, 5, 0, 0)
+    item.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+    item.AutoButtonColor = false
+    item.Text = ""
+    item.Parent = parent
+    Instance.new("UICorner", item).CornerRadius = UDim.new(0, 10)
+
+    local itemTitle = Instance.new("TextLabel", item)
+    itemTitle.Text = name
+    itemTitle.Font = Enum.Font.GothamBold
+    itemTitle.TextSize = 15
+    itemTitle.TextColor3 = Color3.new(1,1,1)
+    itemTitle.BackgroundTransparency = 1
+    itemTitle.Position = UDim2.new(0, 10, 0, 6)
+    itemTitle.Size = UDim2.new(1, -44, 0, 18)
+    itemTitle.TextXAlignment = Enum.TextXAlignment.Left
+    itemTitle.TextTruncate = Enum.TextTruncate.AtEnd
+
+    local sub = Instance.new("TextLabel", item)
+    sub.Text = "@"..creator
+    sub.Font = Enum.Font.Gotham
+    sub.TextSize = 12
+    sub.TextColor3 = Color3.fromRGB(160,165,175)
+    sub.BackgroundTransparency = 1
+    sub.Position = UDim2.new(0, 10, 0, 26)
+    sub.Size = UDim2.new(1, -44, 0, 16)
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+
+    local heart = Instance.new("TextLabel", item)
+    heart.Text = favorites[tostring(id)] and "♥" or "♡"
+    heart.Font = Enum.Font.GothamBold
+    heart.TextSize = 18
+    heart.TextColor3 = Color3.fromRGB(255,110,180)
+    heart.BackgroundTransparency = 1
+    heart.Size = UDim2.new(0, 20, 0, 20)
+    heart.Position = UDim2.new(1, -30, 0.5, -10)
+
+    item.MouseEnter:Connect(function()
+        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(38,40,52)}):Play()
+    end)
+    item.MouseLeave:Connect(function()
+        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28,30,40)}):Play()
+    end)
+
+    item.MouseButton1Click:Connect(function()
+        bbCurrentSong = {id=id, name=name, creator=creator}
+        sound.SoundId = "rbxassetid://"..id
+        sound:Play()
+        bbBtnPlay.Text = "⏸"
+        bbLblSong.Text = name
+        bbLblArtist.Text = "@"..creator
+        bbCoverLabel.Text = string.sub(name,1,1):upper()
+        bbBtnHeart.Text = favorites[tostring(id)] and "♥" or "♡"
+        bbBtnHeart.TextColor3 = favorites[tostring(id)] and Color3.fromRGB(255,110,180) or Color3.fromRGB(200,200,210)
+        bbSwitchPage(2)
+    end)
+
+    return item
+end
+
+bbSearchBox.FocusLost:Connect(function(enter)
+    if not enter then return end
+    local id = tonumber(bbSearchBox.Text:match("%d+"))
+    if not id then return end
+    local success, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, Enum.InfoType.Asset)
+    if success and info and info.AssetTypeId == 3 then
+        bbCreateItem(bbScrollList, id, info.Name, info.Creator.Name)
+        bbSearchBox.Text = ""
+    else
+        bbSearchBox.Text = "Invalid ID"
+        task.wait(1)
+        bbSearchBox.Text = ""
+    end
+end)
+
+bbBtnPlay.MouseButton1Click:Connect(function()
+    if sound.IsPlaying then
+        sound:Pause()
+        bbBtnPlay.Text = "▶"
+    else
+        sound:Resume()
+        bbBtnPlay.Text = "⏸"
+    end
+end)
+
+bbBtnHeart.MouseButton1Click:Connect(function()
+    if not bbCurrentSong then return end
+    local id = tostring(bbCurrentSong.id)
+    if favorites[id] then
+        favorites[id] = nil
+        bbBtnHeart.Text = "♡"
+        bbBtnHeart.TextColor3 = Color3.fromRGB(200,200,210)
+    else
+        favorites[id] = {name=bbCurrentSong.name, creator=bbCurrentSong.creator}
+        bbBtnHeart.Text = "♥"
+        bbBtnHeart.TextColor3 = Color3.fromRGB(255,110,180)
+    end
+    saveFavs()
+end)
+
+bbBtnLoop.MouseButton1Click:Connect(function()
+    sound.Looped = not sound.Looped
+    bbBtnLoop.TextColor3 = sound.Looped and Color3.fromRGB(120,140,255) or Color3.fromRGB(160,165,180)
+end)
+
+RunService.Heartbeat:Connect(function()
+    if sound.IsLoaded and sound.TimeLength > 0 then
+        local progress = sound.TimePosition / sound.TimeLength
+        bbBarFill.Size = UDim2.new(math.clamp(progress,0,1), 0, 1, 0)
+        bbLblTime.Text = "-"..bbFormatTime(sound.TimeLength - sound.TimePosition)
+    end
+end)
+
+local bbIsMinimized = false
+bbMinBtn.MouseButton1Click:Connect(function()
+    bbIsMinimized = not bbIsMinimized
+    local targetHeight = bbIsMinimized and 60 or (isMobile and 280 or 600)
+    TweenService:Create(boomboxFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(boomboxFrame.Size.X.Scale, boomboxFrame.Size.X.Offset, 0, targetHeight)}):Play()
+    bbPages.Visible = not bbIsMinimized
+    bbNav.Visible = not bbIsMinimized
+end)
+
+local bbFavLayout = Instance.new("UIListLayout", bbPageFavs)
+bbFavLayout.Padding = UDim.new(0,6)
+bbFavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bbFavLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    bbPageFavs.CanvasSize = UDim2.new(0,0,0, bbFavLayout.AbsoluteContentSize.Y + 10)
+end)
+
+bbNavFavs.MouseButton1Click:Connect(function()
+    bbPageFavs:ClearAllChildren()
+    local layoutRef = Instance.new("UIListLayout", bbPageFavs)
+    layoutRef.Padding = UDim.new(0,6)
+    for id, data in pairs(favorites) do
+        bbCreateItem(bbPageFavs, tonumber(id), data.name, data.creator)
+    end
+end)
+
+bbCreateItem(bbScrollList, 1837657613, "HR - WASSA", "Clippsly")
+bbCreateItem(bbScrollList, 9043887097, "FEMININO DO VAPO FUNK", "DistrokidOfficial")
+bbCreateItem(bbScrollList, 8422288236, "have", "4jayxx")
+
+bbSwitchPage(1)
+
+-- --- CONTROL PANEL BOOMBOX TOGGLE ---
+addToggle("14. 🎵 BOOMBOX RELICSxyz ▼", function(active)
+    boomboxFrame.Visible = active
+    if active then
+        bbSwitchPage(1)
+    end
+end)
+
+
+-- --- ENTITY ESP ---
+local entityESPObjects = {}
+local entityESPScanConnection = nil
+local entityESPAddedConnection = nil
+local entityESPRemovingConnection = nil
+
+local function isEntityModel(model)
+    if not model or not model:IsA("Model") then
+        return false
+    end
+
+    if Players:GetPlayerFromCharacter(model) then
+        return false
+    end
+
+    return model:GetAttribute("IsEntity") == true
+        or model:FindFirstChild("Entity") ~= nil
+        or model:FindFirstChildOfClass("Humanoid") ~= nil
+        or model:FindFirstChild("HumanoidRootPart") ~= nil
+end
+
+local function removeEntityESP(model)
+    local data = entityESPObjects[model]
+    if not data then
+        return
+    end
+
+    if data.highlight then data.highlight:Destroy() end
+    if data.billboard then data.billboard:Destroy() end
+    entityESPObjects[model] = nil
+end
+
+local function createEntityESP(model)
+    if not states.entitiesESP or entityESPObjects[model] or not isEntityModel(model) then
+        return
+    end
+
+    local adornee = model:FindFirstChild("HumanoidRootPart")
+        or model.PrimaryPart
+        or model:FindFirstChild("Head")
+        or model:FindFirstChildWhichIsA("BasePart", true)
+
+    if not adornee then
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "AdminEntityESP_Highlight"
+    highlight.Adornee = model
+    highlight.FillColor = Color3.fromRGB(255, 45, 45)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.82
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = screenGui
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "AdminEntityESP_Info"
+    billboard.Adornee = adornee
+    billboard.Size = UDim2.fromOffset(180, 42)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 10000
+    billboard.Parent = screenGui
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Info"
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 70, 70)
+    label.TextStrokeTransparency = 0
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = model.Name
+    label.Parent = billboard
+
+    entityESPObjects[model] = {
+        highlight = highlight,
+        billboard = billboard,
+        label = label,
+    }
+end
+
+local function scanEntityInstance(instance)
+    if instance:IsA("Model") then
+        createEntityESP(instance)
+    elseif instance:IsA("BasePart") or instance:IsA("Humanoid")
+        or instance.Name == "HumanoidRootPart" or instance.Name == "Entity"
+        or instance:GetAttribute("IsEntity") == true then
+        local model = instance:FindFirstAncestorOfClass("Model")
+        if model then
+            task.defer(function()
+                if states.entitiesESP and model.Parent then
+                    createEntityESP(model)
+                end
+            end)
+        end
+    end
+end
+
+local function setEntitiesESP(active)
+    states.entitiesESP = active
+
+    if entityESPAddedConnection then
+        entityESPAddedConnection:Disconnect()
+        entityESPAddedConnection = nil
+    end
+    if entityESPRemovingConnection then
+        entityESPRemovingConnection:Disconnect()
+        entityESPRemovingConnection = nil
+    end
+    if entityESPScanConnection then
+        entityESPScanConnection:Disconnect()
+        entityESPScanConnection = nil
+    end
+
+    if not active then
+        for model in pairs(entityESPObjects) do
+            removeEntityESP(model)
+        end
+        return
+    end
+
+    for _, instance in ipairs(Workspace:GetDescendants()) do
+        if instance:IsA("Model") then
+            createEntityESP(instance)
+        end
+    end
+
+    entityESPAddedConnection = Workspace.DescendantAdded:Connect(scanEntityInstance)
+
+    entityESPRemovingConnection = Workspace.DescendantRemoving:Connect(function(instance)
+        if instance:IsA("Model") then
+            removeEntityESP(instance)
+        end
+    end)
+
+    entityESPScanConnection = RunService.RenderStepped:Connect(function()
+        if not states.entitiesESP then return end
+
+        local root = getRoot()
+        for model, data in pairs(entityESPObjects) do
+            if not model.Parent then
+                removeEntityESP(model)
+            elseif root and data.billboard and data.billboard.Adornee
+                and data.billboard.Adornee:IsA("BasePart") then
+                local distance = (root.Position - data.billboard.Adornee.Position).Magnitude
+                data.label.Text = string.format("%s\n%d studs", model.Name, math.floor(distance))
+                data.billboard.Enabled = distance <= 10000
+            end
+        end
+    end)
+end
+
+addToggle("15. 🔴 Entity ESP", setEntitiesESP)
+
+-- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
+local scriptClosed = false
+local function closeAdminPanelPermanently()
+    if scriptClosed then return end
+    scriptClosed = true
+
+    -- Instantly stop states & loops
+    for key in pairs(states) do states[key] = false end
+    stopXRay()
+    setEntitiesESP(false)
+    removePlayerESP()
+
+    for name, connection in pairs(connections) do
+        if connection then pcall(function() connection:Disconnect() end) end
+        connections[name] = nil
+    end
+    if xrayConnection then pcall(function() xrayConnection:Disconnect() end); xrayConnection = nil end
+
+    -- Cleanup fly physics
+    if flyBG then pcall(function() flyBG:Destroy() end); flyBG = nil end
+    if flyBV then pcall(function() flyBV:Destroy() end); flyBV = nil end
+
+    -- Restore local player defaults
+    local character = player.Character
+    if character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = 16
+            camera.CameraSubject = humanoid
+        end
+    end
+    pcall(function()
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = 1
+        player.CameraMaxZoomDistance = 400
+        player.CameraMinZoomDistance = 0.5
+    end)
+
+    pcall(function() sound:Stop(); sound:Destroy() end)
+    activeDrag = nil
+    screenGui:Destroy()
+end
+
+confirmCloseBtn.MouseButton1Click:Connect(closeAdminPanelPermanently)
+
+-- --- LAUNCH NOTIFICATION ---
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "ADMIN v8.0", 
+    Text = "Panel & RELICS Boombox loaded! Press [G] to minimize menu.", 
+    Duration = 5,
+    Icon = "rbxassetid://1087851214"
+})

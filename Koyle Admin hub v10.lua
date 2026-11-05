@@ -57,18 +57,124 @@ local flyBV, flyBG = nil, nil
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- --- THEME AND SIZES ---
-local GUI_THEME = {
-    Background = Color3.fromRGB(15, 15, 22),
-    Header = Color3.fromRGB(25, 25, 35),
-    Accent = Color3.fromRGB(0, 200, 255),
-    ButtonOff = Color3.fromRGB(35, 35, 45),
-    ButtonOn = Color3.fromRGB(0, 200, 255),
-    Text = Color3.fromRGB(255, 255, 255),
-    Transparency = 0.1
+-- --- THEME AND SIZES (BRICK STYLE) ---
+local BRICK = {
+    Blue       = Color3.fromRGB(36, 132, 226),
+    BlueLight  = Color3.fromRGB(64, 163, 245),
+    BlueHover  = Color3.fromRGB(98, 186, 255),
+    BlueDark   = Color3.fromRGB(20, 82, 168),
+    BlueDeep   = Color3.fromRGB(16, 62, 138),
+    Stud       = Color3.fromRGB(96, 178, 250),
+    Orange     = Color3.fromRGB(255, 138, 22),
+    OrangeDark = Color3.fromRGB(196, 86, 0),
+    Green      = Color3.fromRGB(86, 204, 42),
+    GreenDark  = Color3.fromRGB(36, 132, 18),
+    Red        = Color3.fromRGB(238, 64, 64),
+    RedDark    = Color3.fromRGB(160, 28, 36),
+    Yellow     = Color3.fromRGB(255, 204, 34),
+    YellowDark = Color3.fromRGB(196, 138, 0),
+    Purple     = Color3.fromRGB(136, 92, 232),
+    PurpleDark = Color3.fromRGB(84, 46, 170),
+    Pink       = Color3.fromRGB(244, 72, 132),
+    PinkDark   = Color3.fromRGB(170, 30, 80),
+    Text       = Color3.fromRGB(255, 255, 255),
+    TextSoft   = Color3.fromRGB(205, 230, 255),
+    TextStroke = Color3.fromRGB(12, 52, 118),
 }
 
-local sizes = isMobile and {w = 240, h = 340, head = 40, btn = 35, txt = 11} or {w = 380, h = 550, head = 60, btn = 45, txt = 14}
+local GUI_THEME = {
+    Background = BRICK.Blue,
+    Header = BRICK.Orange,
+    Accent = BRICK.Yellow,
+    ButtonOff = BRICK.BlueLight,
+    ButtonOn = BRICK.Green,
+    Text = BRICK.Text,
+    Transparency = 0
+}
+
+local sizes = isMobile and {w = 240, h = 340, head = 44, btn = 36, txt = 12} or {w = 380, h = 550, head = 62, btn = 46, txt = 16}
+
+local BRICK_FONT = Enum.Font.FredokaOne
+local BRICK_SHADE = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(198, 204, 216))
+
+-- Texte blanc arrondi avec contour bleu foncé (style "jeu")
+local function brickText(label, size, color)
+    label.Font = BRICK_FONT
+    label.TextColor3 = color or BRICK.Text
+    if size then label.TextSize = size end
+    local s = label:FindFirstChild("BrickTextStroke") or Instance.new("UIStroke")
+    s.Name = "BrickTextStroke"
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    s.Color = BRICK.TextStroke
+    s.Thickness = isMobile and 1 or 1.5
+    s.Parent = label
+    return s
+end
+
+-- Bloc "brique" : couleur pleine, bord épais foncé, léger dégradé pour l'effet 3D
+local function brickify(gui, color, edgeColor, radius, edgeThickness)
+    gui.BackgroundColor3 = color
+    gui.BackgroundTransparency = 0
+    gui.BorderSizePixel = 0
+    local corner = gui:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", gui)
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    local edge = Instance.new("UIStroke")
+    edge.Name = "BrickEdge"
+    edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    edge.Color = edgeColor or BRICK.BlueDark
+    edge.Thickness = edgeThickness or 3
+    edge.Parent = gui
+    local shade = Instance.new("UIGradient")
+    shade.Name = "BrickShade"
+    shade.Color = BRICK_SHADE
+    shade.Rotation = 90
+    shade.Parent = gui
+    return edge
+end
+
+-- Picots façon briques de construction, dessinés derrière le contenu d'un panneau
+local STUD_SIZE = isMobile and 6 or 8
+local STUD_GAP = isMobile and 14 or 18
+local function addStuds(frame, width, height)
+    local layer = Instance.new("Frame")
+    layer.Name = "Studs"
+    layer.BackgroundTransparency = 1
+    layer.Size = UDim2.fromScale(1, 1)
+    layer.ClipsDescendants = true
+    layer.ZIndex = 0
+    local pad = Instance.new("UIPadding", layer)
+    pad.PaddingLeft = UDim.new(0, 9)
+    pad.PaddingTop = UDim.new(0, 9)
+    local grid = Instance.new("UIGridLayout", layer)
+    grid.CellSize = UDim2.fromOffset(STUD_SIZE, STUD_SIZE)
+    grid.CellPadding = UDim2.fromOffset(STUD_GAP, STUD_GAP)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    local step = STUD_SIZE + STUD_GAP
+    for _ = 1, math.ceil(width / step) * math.ceil(height / step) do
+        local stud = Instance.new("Frame")
+        stud.BorderSizePixel = 0
+        stud.BackgroundColor3 = BRICK.Stud
+        stud.BackgroundTransparency = 0.2
+        stud.ZIndex = 0
+        Instance.new("UICorner", stud).CornerRadius = UDim.new(1, 0)
+        stud.Parent = layer
+    end
+    layer.Parent = frame
+    return layer
+end
+
+-- Panneau bleu à picots
+local function brickPanel(frame, width, height)
+    brickify(frame, BRICK.Blue, BRICK.BlueDark, 12, 4)
+    addStuds(frame, width, height)
+end
+
+-- Bouton-icône carré coloré (✕ rouge, ✓ vert, etc.)
+local function brickIcon(btn, color, edgeColor, textSize)
+    brickify(btn, color, edgeColor, 8, 3)
+    brickText(btn, textSize)
+    btn.AutoButtonColor = false
+end
 
 -- --- BOOMBOX CORE CONFIGURATION ---
 local sound = Instance.new("Sound")
@@ -168,161 +274,129 @@ end)
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "UltimateAdmin_v80"
 screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Floating Bubble (Minimized)
+-- Floating Bubble (Minimized) : brique orange carrée
 local bubble = Instance.new("TextButton", screenGui)
 bubble.Name = "Bubble"
-bubble.Size = UDim2.new(0, 50, 0, 50)
-bubble.Position = UDim2.new(0, 20, 0.5, -25)
-bubble.BackgroundColor3 = GUI_THEME.Background
+bubble.Size = UDim2.new(0, 54, 0, 54)
+bubble.Position = UDim2.new(0, 20, 0.5, -27)
 bubble.Text = "⚡"
-bubble.TextColor3 = GUI_THEME.Accent
-bubble.Font = Enum.Font.GothamBold
-bubble.TextSize = 24
+bubble.TextSize = 26
 bubble.Visible = false
-bubble.AutoButtonColor = false
-Instance.new("UICorner", bubble).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", bubble).Color = GUI_THEME.Accent
-Instance.new("UIStroke", bubble).Thickness = 2
+brickIcon(bubble, BRICK.Orange, BRICK.OrangeDark, 26)
+bubble:FindFirstChild("BrickEdge").Thickness = 4
 
--- Main Frame
+-- Main Frame : grand panneau bleu à picots
 local main = Instance.new("Frame", screenGui)
 main.Name = "MainFrame"
 main.Size = UDim2.new(0, sizes.w, 0, sizes.h)
 main.Position = UDim2.new(0.5, -sizes.w/2, 0.5, -sizes.h/2)
-main.BackgroundColor3 = GUI_THEME.Background
-main.BackgroundTransparency = GUI_THEME.Transparency
-main.BorderSizePixel = 0
 main.Visible = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
-local mainGradient = Instance.new("UIGradient", main)
-mainGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 24, 34)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 13, 19)),
-})
-mainGradient.Rotation = 90
+brickPanel(main, sizes.w, sizes.h)
 
--- Glow Border
-local stroke = Instance.new("UIStroke", main)
-stroke.Color = GUI_THEME.Accent
-stroke.Thickness = 2
-stroke.Transparency = 0.3
-
--- Header & Title
+-- Header : barre de titre orange en relief
+local headerH = sizes.head - 8
+local iconSize = headerH - 14
 local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, sizes.head)
-header.BackgroundColor3 = GUI_THEME.Header
-header.BackgroundTransparency = GUI_THEME.Transparency
-Instance.new("UICorner", header).CornerRadius = UDim.new(0, 15)
-local headerGradient = Instance.new("UIGradient", header)
-headerGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(34, 43, 61)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 22, 32)),
-})
-headerGradient.Rotation = 0
-
-local headerBottom = Instance.new("Frame", header)
-headerBottom.Size = UDim2.new(1, 0, 0, 10)
-headerBottom.Position = UDim2.new(0, 0, 1, -10)
-headerBottom.BackgroundColor3 = GUI_THEME.Header
-headerBottom.BorderSizePixel = 0
+header.Name = "Header"
+header.Position = UDim2.new(0, 8, 0, 8)
+header.Size = UDim2.new(1, -16, 0, headerH)
+brickify(header, BRICK.Orange, BRICK.OrangeDark, 8, 3)
 
 local icon = Instance.new("TextLabel", header)
 icon.Text = "⚡"
-icon.Size = UDim2.new(0, 40, 1, 0); icon.Position = UDim2.new(0, 10, 0, 0)
-icon.TextColor3 = GUI_THEME.Accent; icon.BackgroundTransparency = 1
-icon.Font = Enum.Font.GothamBold; icon.TextSize = sizes.txt + 6
+icon.Size = UDim2.new(0, iconSize, 0, iconSize)
+icon.Position = UDim2.new(0, 7, 0.5, -iconSize/2)
+brickIcon(icon, BRICK.Yellow, BRICK.YellowDark, sizes.txt + 4)
 
 local title = Instance.new("TextLabel", header)
-title.Text = "ULTIMATE ADMIN v8.0"
-title.Size = UDim2.new(1, -90, 1, 0); title.Position = UDim2.new(0, 50, 0, 0)
-title.TextColor3 = GUI_THEME.Text; title.BackgroundTransparency = 1
-title.Font = Enum.Font.GothamBold; title.TextSize = sizes.txt + 2
+title.Text = "KOYLE ADMIN HUB"
+title.BackgroundTransparency = 1
+title.Position = UDim2.new(0, iconSize + 16, 0, 0)
+title.Size = UDim2.new(1, -(iconSize + 16) - 2 * (iconSize + 8) - 4, 1, 0)
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextTruncate = Enum.TextTruncate.AtEnd
+brickText(title, sizes.txt + 4)
 
--- Minimize Button "-"
+-- Minimize Button "-" : icône bleue
 local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0, 40, 1, 0)
-minBtn.Position = UDim2.new(1, -80, 0, 0)
-minBtn.BackgroundTransparency = 1
-minBtn.Text = "-"
-minBtn.TextColor3 = GUI_THEME.Text
-minBtn.Font = Enum.Font.GothamBold
-minBtn.TextSize = sizes.txt + 12
+minBtn.Name = "MinimizeButton"
+minBtn.Size = UDim2.new(0, iconSize, 0, iconSize)
+minBtn.Position = UDim2.new(1, -2 * (iconSize + 8), 0.5, -iconSize/2)
+minBtn.Text = "—"
+brickIcon(minBtn, BRICK.BlueLight, BRICK.BlueDark, sizes.txt + 2)
 
--- Close Button (with confirmation)
+-- Close Button : icône rouge ✕ (avec confirmation)
 local closeBtn = Instance.new("TextButton", header)
 closeBtn.Name = "CloseButton"
-closeBtn.Size = UDim2.new(0, 40, 1, 0)
-closeBtn.Position = UDim2.new(1, -40, 0, 0)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "×"
-closeBtn.TextColor3 = Color3.fromRGB(255, 95, 105)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = sizes.txt + 10
-closeBtn.AutoButtonColor = false
-closeBtn.MouseEnter:Connect(function() closeBtn.TextColor3 = Color3.fromRGB(255, 145, 150) end)
-closeBtn.MouseLeave:Connect(function() closeBtn.TextColor3 = Color3.fromRGB(255, 95, 105) end)
+closeBtn.Size = UDim2.new(0, iconSize, 0, iconSize)
+closeBtn.Position = UDim2.new(1, -(iconSize + 8), 0.5, -iconSize/2)
+closeBtn.Text = "✕"
+brickIcon(closeBtn, BRICK.Red, BRICK.RedDark, sizes.txt + 2)
+closeBtn.MouseEnter:Connect(function() closeBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100) end)
+closeBtn.MouseLeave:Connect(function() closeBtn.BackgroundColor3 = BRICK.Red end)
+minBtn.MouseEnter:Connect(function() minBtn.BackgroundColor3 = BRICK.BlueHover end)
+minBtn.MouseLeave:Connect(function() minBtn.BackgroundColor3 = BRICK.BlueLight end)
+
+-- Boîte de dialogue "brique" réutilisable (fermeture, reset key...)
+local DIALOG_W = isMobile and 280 or 360
+local DIALOG_H = 184
+local function createBrickDialog(name, titleText, bodyText, confirmText, confirmColor, confirmEdge)
+    local dialog = Instance.new("Frame", screenGui)
+    dialog.Name = name
+    dialog.AnchorPoint = Vector2.new(0.5, 0.5)
+    dialog.Position = UDim2.new(0.5, 0, 0.5, 0)
+    dialog.Size = UDim2.new(0, DIALOG_W, 0, DIALOG_H)
+    dialog.Visible = false
+    dialog.ZIndex = 50
+    brickPanel(dialog, DIALOG_W, DIALOG_H)
+
+    local dTitle = Instance.new("TextLabel", dialog)
+    dTitle.Name = "Title"
+    dTitle.Position = UDim2.new(0, 10, 0, 10)
+    dTitle.Size = UDim2.new(1, -20, 0, 36)
+    dTitle.Text = titleText
+    dTitle.ZIndex = 51
+    brickify(dTitle, BRICK.Orange, BRICK.OrangeDark, 8, 3)
+    brickText(dTitle, isMobile and 16 or 19)
+
+    local dText = Instance.new("TextLabel", dialog)
+    dText.Name = "Body"
+    dText.BackgroundTransparency = 1
+    dText.Position = UDim2.new(0, 16, 0, 52)
+    dText.Size = UDim2.new(1, -32, 0, 70)
+    dText.Text = bodyText
+    dText.TextWrapped = true
+    dText.ZIndex = 51
+    brickText(dText, isMobile and 12 or 14)
+
+    local cancel = Instance.new("TextButton", dialog)
+    cancel.Name = "Cancel"
+    cancel.Size = UDim2.new(0.43, 0, 0, 38)
+    cancel.Position = UDim2.new(0.05, 0, 1, -50)
+    cancel.Text = "CANCEL"
+    cancel.ZIndex = 51
+    brickIcon(cancel, BRICK.BlueLight, BRICK.BlueDark, isMobile and 13 or 15)
+
+    local confirm = Instance.new("TextButton", dialog)
+    confirm.Name = "Confirm"
+    confirm.Size = UDim2.new(0.43, 0, 0, 38)
+    confirm.Position = UDim2.new(0.52, 0, 1, -50)
+    confirm.Text = confirmText
+    confirm.ZIndex = 51
+    brickIcon(confirm, confirmColor, confirmEdge, isMobile and 13 or 15)
+
+    return dialog, cancel, confirm
+end
 
 -- Confirmation Modal
-local closeConfirm = Instance.new("Frame", screenGui)
-closeConfirm.Name = "CloseConfirmation"
-closeConfirm.AnchorPoint = Vector2.new(0.5, 0.5)
-closeConfirm.Position = UDim2.new(0.5, 0, 0.5, 0)
-closeConfirm.Size = UDim2.new(0, isMobile and 280 or 360, 0, 175)
-closeConfirm.BackgroundColor3 = Color3.fromRGB(20, 22, 31)
-closeConfirm.BorderSizePixel = 0
-closeConfirm.Visible = false
-closeConfirm.ZIndex = 50
-Instance.new("UICorner", closeConfirm).CornerRadius = UDim.new(0, 12)
-local confirmStroke = Instance.new("UIStroke", closeConfirm)
-confirmStroke.Color = Color3.fromRGB(255, 95, 105)
-confirmStroke.Thickness = 1.5
-
-local confirmTitle = Instance.new("TextLabel", closeConfirm)
-confirmTitle.BackgroundTransparency = 1
-confirmTitle.Position = UDim2.new(0, 14, 0, 12)
-confirmTitle.Size = UDim2.new(1, -28, 0, 30)
-confirmTitle.Font = Enum.Font.GothamBold
-confirmTitle.Text = "Close Panel?"
-confirmTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-confirmTitle.TextSize = isMobile and 16 or 18
-confirmTitle.ZIndex = 51
-
-local confirmText = Instance.new("TextLabel", closeConfirm)
-confirmText.BackgroundTransparency = 1
-confirmText.Position = UDim2.new(0, 16, 0, 45)
-confirmText.Size = UDim2.new(1, -32, 0, 48)
-confirmText.Font = Enum.Font.Gotham
-confirmText.Text = "The script will stop and its effects will be cancelled. This action is permanent for this session."
-confirmText.TextWrapped = true
-confirmText.TextColor3 = Color3.fromRGB(205, 210, 220)
-confirmText.TextSize = isMobile and 11 or 13
-confirmText.ZIndex = 51
-
-local cancelCloseBtn = Instance.new("TextButton", closeConfirm)
-cancelCloseBtn.Name = "CancelClose"
-cancelCloseBtn.Size = UDim2.new(0.43, 0, 0, 36)
-cancelCloseBtn.Position = UDim2.new(0.05, 0, 1, -48)
-cancelCloseBtn.BackgroundColor3 = Color3.fromRGB(55, 59, 72)
-cancelCloseBtn.Text = "Cancel"
-cancelCloseBtn.TextColor3 = Color3.new(1, 1, 1)
-cancelCloseBtn.Font = Enum.Font.GothamSemibold
-cancelCloseBtn.TextSize = isMobile and 12 or 14
-cancelCloseBtn.ZIndex = 51
-Instance.new("UICorner", cancelCloseBtn).CornerRadius = UDim.new(0, 7)
-
-local confirmCloseBtn = Instance.new("TextButton", closeConfirm)
-confirmCloseBtn.Name = "ConfirmClose"
-confirmCloseBtn.Size = UDim2.new(0.43, 0, 0, 36)
-confirmCloseBtn.Position = UDim2.new(0.52, 0, 1, -48)
-confirmCloseBtn.BackgroundColor3 = Color3.fromRGB(170, 45, 55)
-confirmCloseBtn.Text = "Close"
-confirmCloseBtn.TextColor3 = Color3.new(1, 1, 1)
-confirmCloseBtn.Font = Enum.Font.GothamBold
-confirmCloseBtn.TextSize = isMobile and 12 or 14
-confirmCloseBtn.ZIndex = 51
-Instance.new("UICorner", confirmCloseBtn).CornerRadius = UDim.new(0, 7)
+local closeConfirm, cancelCloseBtn, confirmCloseBtn = createBrickDialog(
+    "CloseConfirmation",
+    "CLOSE PANEL?",
+    "The script will stop and its effects will be cancelled. This action is permanent for this session.",
+    "CLOSE", BRICK.Red, BRICK.RedDark
+)
 
 closeBtn.MouseButton1Click:Connect(function()
     closeConfirm.Visible = true
@@ -336,10 +410,14 @@ local scroll = Instance.new("ScrollingFrame", main)
 scroll.Size = UDim2.new(1, -16, 1, -sizes.head - 16)
 scroll.Position = UDim2.new(0, 8, 0, sizes.head + 8)
 scroll.BackgroundTransparency = 1; scroll.BorderSizePixel = 0
-scroll.ScrollBarThickness = 4; scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollBarImageColor3 = GUI_THEME.Accent
+scroll.ScrollBarThickness = 6; scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.ScrollBarImageColor3 = BRICK.Orange
+local scrollPad = Instance.new("UIPadding", scroll)
+scrollPad.PaddingTop = UDim.new(0, 5); scrollPad.PaddingBottom = UDim.new(0, 8)
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 8); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- --- TOGGLE LOGIC (BUBBLE / MAIN) ---
 local isOpen = true
@@ -437,53 +515,52 @@ local function handleAimbot()
     end
 end
 
--- --- BUTTON CREATOR ---
+-- --- BUTTON CREATOR (BRICK STYLE) ---
+local toggleCount = 0
 local function addToggle(txt, cb)
+    toggleCount += 1
     local btnFrame = Instance.new("Frame", scroll)
-    btnFrame.Size = UDim2.new(1, -10, 0, sizes.btn)
+    btnFrame.Size = UDim2.new(1, -12, 0, sizes.btn)
     btnFrame.BackgroundTransparency = 1
+    btnFrame.LayoutOrder = toggleCount
 
     local b = Instance.new("TextButton", btnFrame)
     b.Size = UDim2.new(1, 0, 1, 0)
-    b.BackgroundColor3 = GUI_THEME.ButtonOff
-    b.Text = "  " .. txt
-    b.TextColor3 = GUI_THEME.Text
-    b.Font = Enum.Font.GothamSemibold
-    b.TextSize = sizes.txt
+    b.Text = txt
     b.TextXAlignment = Enum.TextXAlignment.Left
+    b.TextTruncate = Enum.TextTruncate.AtEnd
     b.AutoButtonColor = false
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-    local buttonStroke = Instance.new("UIStroke", b)
-    buttonStroke.Color = GUI_THEME.Accent
-    buttonStroke.Thickness = 1
-    buttonStroke.Transparency = 0.88
+    local buttonStroke = brickify(b, BRICK.BlueLight, BRICK.BlueDark, 8, 3)
+    brickText(b, sizes.txt)
+    local pad = Instance.new("UIPadding", b)
+    pad.PaddingLeft = UDim.new(0, 12)
+    pad.PaddingRight = UDim.new(0, sizes.btn)
 
-    local statusIndicator = Instance.new("Frame", b)
-    statusIndicator.Size = UDim2.new(0, 4, 0.6, 0)
-    statusIndicator.Position = UDim2.new(1, -12, 0.2, 0)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    Instance.new("UICorner", statusIndicator).CornerRadius = UDim.new(1, 0)
+    -- Case d'état à droite : bleu foncé = OFF, vert ✓ = ON
+    local boxSize = sizes.btn - 16
+    local statusIndicator = Instance.new("TextLabel", b)
+    statusIndicator.Name = "Status"
+    statusIndicator.AnchorPoint = Vector2.new(1, 0.5)
+    statusIndicator.Size = UDim2.new(0, boxSize, 0, boxSize)
+    statusIndicator.Position = UDim2.new(1, sizes.btn - 8, 0.5, 0)
+    statusIndicator.Text = ""
+    local statusEdge = brickify(statusIndicator, BRICK.BlueDeep, BRICK.BlueDark, 6, 2)
+    brickText(statusIndicator, sizes.txt)
 
     local active = false
     local hovered = false
 
     local function refreshToggleStyle()
-        local targetColor
-        if active then
-            targetColor = Color3.fromRGB(25, 60, 80)
-        elseif hovered then
-            targetColor = Color3.fromRGB(45, 50, 64)
-        else
-            targetColor = GUI_THEME.ButtonOff
-        end
-        TweenService:Create(b, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        local targetColor = hovered and BRICK.BlueHover or BRICK.BlueLight
+        TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = targetColor
         }):Play()
-        TweenService:Create(buttonStroke, TweenInfo.new(0.14), {
-            Transparency = (active or hovered) and 0.45 or 0.88
-        }):Play()
-        TweenService:Create(statusIndicator, TweenInfo.new(0.14), {
-            BackgroundColor3 = active and GUI_THEME.Accent or (hovered and Color3.fromRGB(100, 115, 135) or Color3.fromRGB(60, 60, 70))
+        buttonStroke.Color = active and BRICK.OrangeDark or BRICK.BlueDark
+        buttonStroke.Thickness = active and 4 or 3
+        statusIndicator.Text = active and "✓" or ""
+        statusEdge.Color = active and BRICK.GreenDark or BRICK.BlueDark
+        TweenService:Create(statusIndicator, TweenInfo.new(0.12), {
+            BackgroundColor3 = active and BRICK.Green or BRICK.BlueDeep
         }):Play()
     end
 
@@ -546,7 +623,7 @@ addToggle("4. 👁️ Player ESP", function(a)
                     local head = p.Character.Head
                     if not playerESPObjects[head] or not playerESPObjects[head].Parent then
                         local b = Instance.new("BillboardGui", head); b.Name = "ESP_MARK"; b.AlwaysOnTop = true; b.Size = UDim2.new(0,80,0,40)
-                        local t = Instance.new("TextLabel", b); t.Text = p.Name; t.Size = UDim2.new(1,0,1,0); t.BackgroundTransparency = 1; t.TextColor3 = GUI_THEME.Accent; t.Font = Enum.Font.GothamBold; t.TextScaled = true
+                        local t = Instance.new("TextLabel", b); t.Text = p.Name; t.Size = UDim2.new(1,0,1,0); t.BackgroundTransparency = 1; t.TextColor3 = GUI_THEME.Accent; t.Font = BRICK_FONT; t.TextScaled = true
                         playerESPObjects[head] = b
                     end
                 end
@@ -665,48 +742,66 @@ addToggle("11.🔍 Infinite Zoom", function(a)
     player.CameraMinZoomDistance = a and 0 or 0.5
 end)
 
+-- --- SIDE WINDOWS (BRICK STYLE) ---
+local SIDE_W, SIDE_H = 210, 270
+local function createSideWindow(name, titleText, position)
+    local win = Instance.new("Frame", screenGui)
+    win.Name = name
+    win.Size = UDim2.new(0, SIDE_W, 0, SIDE_H)
+    win.Position = position
+    win.Visible = false
+    brickPanel(win, SIDE_W, SIDE_H)
+
+    local winHeader = Instance.new("TextLabel", win)
+    winHeader.Name = "Header"
+    winHeader.Position = UDim2.new(0, 7, 0, 7)
+    winHeader.Size = UDim2.new(1, -14, 0, 32)
+    winHeader.Text = titleText
+    brickify(winHeader, BRICK.Orange, BRICK.OrangeDark, 8, 3)
+    brickText(winHeader, 16)
+
+    local winScr = Instance.new("ScrollingFrame", win)
+    winScr.Size = UDim2.new(1, -14, 1, -54); winScr.Position = UDim2.new(0, 7, 0, 46)
+    winScr.BackgroundTransparency = 1; winScr.BorderSizePixel = 0
+    winScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    winScr.CanvasSize = UDim2.new(0, 0, 0, 0)
+    winScr.ScrollBarThickness = 4
+    winScr.ScrollBarImageColor3 = BRICK.Orange
+    local winPad = Instance.new("UIPadding", winScr)
+    winPad.PaddingTop = UDim.new(0, 4); winPad.PaddingLeft = UDim.new(0, 4); winPad.PaddingRight = UDim.new(0, 8)
+    local winLayout = Instance.new("UIListLayout", winScr)
+    winLayout.Padding = UDim.new(0, 7)
+    winLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    makeDraggable(win, winHeader)
+    return win, winHeader, winScr
+end
+
+local function createListButton(parent, text, color, edgeColor, order)
+    local pb = Instance.new("TextButton", parent)
+    pb.Size = UDim2.new(1, 0, 0, 32)
+    pb.Text = text
+    pb.LayoutOrder = order or 0
+    pb.TextTruncate = Enum.TextTruncate.AtEnd
+    brickIcon(pb, color or BRICK.BlueLight, edgeColor or BRICK.BlueDark, 14)
+    local base = color or BRICK.BlueLight
+    pb.MouseEnter:Connect(function() pb.BackgroundColor3 = base:Lerp(Color3.new(1, 1, 1), 0.2) end)
+    pb.MouseLeave:Connect(function() pb.BackgroundColor3 = base end)
+    return pb
+end
+
 -- --- PLAYER TELEPORT SYSTEM ---
-local tpWin = Instance.new("Frame", screenGui)
-tpWin.Size = UDim2.new(0, 200, 0, 250)
-tpWin.Position = UDim2.new(0.5, sizes.w/2 + 20, 0.5, -125)
-tpWin.BackgroundColor3 = GUI_THEME.Background
-tpWin.BackgroundTransparency = GUI_THEME.Transparency
-tpWin.Visible = false
-Instance.new("UICorner", tpWin).CornerRadius = UDim.new(0, 10)
-Instance.new("UIStroke", tpWin).Color = GUI_THEME.Accent
-Instance.new("UIStroke", tpWin).Transparency = 0.3
-
-local tpHeader = Instance.new("Frame", tpWin)
-tpHeader.Size = UDim2.new(1, 0, 0, 30)
-tpHeader.BackgroundColor3 = GUI_THEME.Header
-Instance.new("UICorner", tpHeader).CornerRadius = UDim.new(0, 10)
-local tpTitle = Instance.new("TextLabel", tpHeader)
-tpTitle.Size = UDim2.new(1, 0, 1, 0)
-tpTitle.BackgroundTransparency = 1
-tpTitle.Text = "TELEPORTATION"
-tpTitle.TextColor3 = GUI_THEME.Accent
-tpTitle.Font = Enum.Font.GothamBold
-
-local tpScr = Instance.new("ScrollingFrame", tpWin)
-tpScr.Size = UDim2.new(1, -10, 1, -40); tpScr.Position = UDim2.new(0, 5, 0, 35)
-tpScr.BackgroundTransparency = 1; tpScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
-tpScr.ScrollBarThickness = 2
-local tpLayout = Instance.new("UIListLayout", tpScr)
-tpLayout.Padding = UDim.new(0, 5)
-
-makeDraggable(tpWin, tpHeader)
+local tpWin, tpHeader, tpScr = createSideWindow("TeleportWindow", "TELEPORT", UDim2.new(0.5, sizes.w/2 + 20, 0.5, -SIDE_H/2))
 
 addToggle("12. 👥 TP TO PLAYER ▼", function(active)
     tpWin.Visible = active
     if tpWin.Visible then
         for _, v in pairs(tpScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        local order = 0
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player then
-                local pb = Instance.new("TextButton", tpScr)
-                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
-                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
-                pb.Font = Enum.Font.Gotham
-                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                order += 1
+                local pb = createListButton(tpScr, p.DisplayName, nil, nil, order)
                 pb.MouseButton1Click:Connect(function() 
                     if getRoot() and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
                         getRoot().CFrame = p.Character.HumanoidRootPart.CFrame 
@@ -718,57 +813,23 @@ addToggle("12. 👥 TP TO PLAYER ▼", function(active)
 end)
 
 -- --- SPECTATE SYSTEM ---
-local specWin = Instance.new("Frame", screenGui)
-specWin.Size = UDim2.new(0, 200, 0, 250)
-specWin.Position = UDim2.new(0.5, -sizes.w/2 - 220, 0.5, -125)
-specWin.BackgroundColor3 = GUI_THEME.Background
-specWin.BackgroundTransparency = GUI_THEME.Transparency
-specWin.Visible = false
-Instance.new("UICorner", specWin).CornerRadius = UDim.new(0, 10)
-Instance.new("UIStroke", specWin).Color = GUI_THEME.Accent
-Instance.new("UIStroke", specWin).Transparency = 0.3
-
-local specHeader = Instance.new("Frame", specWin)
-specHeader.Size = UDim2.new(1, 0, 0, 30)
-specHeader.BackgroundColor3 = GUI_THEME.Header
-Instance.new("UICorner", specHeader).CornerRadius = UDim.new(0, 10)
-local specTitle = Instance.new("TextLabel", specHeader)
-specTitle.Size = UDim2.new(1, 0, 1, 0)
-specTitle.BackgroundTransparency = 1
-specTitle.Text = "SPECTATE"
-specTitle.TextColor3 = GUI_THEME.Accent
-specTitle.Font = Enum.Font.GothamBold
-
-local specScr = Instance.new("ScrollingFrame", specWin)
-specScr.Size = UDim2.new(1, -10, 1, -40); specScr.Position = UDim2.new(0, 5, 0, 35)
-specScr.BackgroundTransparency = 1; specScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
-specScr.ScrollBarThickness = 2
-local specLayout = Instance.new("UIListLayout", specScr)
-specLayout.Padding = UDim.new(0, 5)
-
-makeDraggable(specWin, specHeader)
+local specWin, specHeader, specScr = createSideWindow("SpectateWindow", "SPECTATE", UDim2.new(0.5, -sizes.w/2 - SIDE_W - 20, 0.5, -SIDE_H/2))
 
 addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
     specWin.Visible = active
     if specWin.Visible then
         for _, v in pairs(specScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
         
-        local stopBtn = Instance.new("TextButton", specScr)
-        stopBtn.Size = UDim2.new(1, 0, 0, 30); stopBtn.Text = "❌ STOP SPECTATE"
-        stopBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40); stopBtn.TextColor3 = Color3.new(1, 1, 1)
-        stopBtn.Font = Enum.Font.GothamBold
-        Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 5)
+        local stopBtn = createListButton(specScr, "✕ STOP SPECTATE", BRICK.Red, BRICK.RedDark, 0)
         stopBtn.MouseButton1Click:Connect(function() 
             if getHum() then camera.CameraSubject = getHum() end
         end)
 
+        local order = 0
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player then
-                local pb = Instance.new("TextButton", specScr)
-                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
-                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
-                pb.Font = Enum.Font.Gotham
-                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                order += 1
+                local pb = createListButton(specScr, p.DisplayName, nil, nil, order)
                 pb.MouseButton1Click:Connect(function() 
                     if p.Character and p.Character:FindFirstChild("Humanoid") then 
                         camera.CameraSubject = p.Character.Humanoid
@@ -781,36 +842,12 @@ addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
     end
 end)
 
--- --- BOOMBOX RELICSxyz v4.1 SYSTEM ---
+-- --- BOOMBOX RELICSxyz v4.1 SYSTEM (BRICK STYLE) ---
 local boomboxFrame = Instance.new("Frame", screenGui)
 boomboxFrame.Name = "BoomboxFrame"
-boomboxFrame.BackgroundColor3 = Color3.fromRGB(16, 17, 22)
-boomboxFrame.BackgroundTransparency = 0.05
-boomboxFrame.BorderSizePixel = 0
 boomboxFrame.ClipsDescendants = true
 boomboxFrame.Visible = false
-
-local bbCorner = Instance.new("UICorner", boomboxFrame)
-bbCorner.CornerRadius = UDim.new(0, 22)
-
-local bbStroke = Instance.new("UIStroke", boomboxFrame)
-bbStroke.Color = Color3.fromRGB(100, 110, 255)
-bbStroke.Thickness = 1.5
-bbStroke.Transparency = 0.3
-
-local bbGrad = Instance.new("UIGradient", bbStroke)
-bbGrad.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(140, 90, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 170, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 180))
-}
-
-task.spawn(function()
-    while boomboxFrame.Parent do
-        bbGrad.Rotation = (bbGrad.Rotation + 0.2) % 360
-        task.wait(0.03)
-    end
-end)
+brickPanel(boomboxFrame, isMobile and 900 or 440, isMobile and 280 or 600)
 
 local function updateBoomboxSize()
     if isMobile then
@@ -826,189 +863,179 @@ end
 updateBoomboxSize()
 camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateBoomboxSize)
 
+-- Barre de titre orange
 local bbTopBar = Instance.new("Frame", boomboxFrame)
-bbTopBar.Size = UDim2.new(1, 0, 0, 42)
-bbTopBar.BackgroundTransparency = 1
+bbTopBar.Name = "TopBar"
+bbTopBar.Position = UDim2.new(0, 8, 0, 8)
+bbTopBar.Size = UDim2.new(1, -16, 0, 40)
+brickify(bbTopBar, BRICK.Orange, BRICK.OrangeDark, 8, 3)
 
 local bbTitle = Instance.new("TextLabel", bbTopBar)
-bbTitle.Text = "⬣ RELICSxyz"
-bbTitle.Font = Enum.Font.GothamBlack
-bbTitle.TextSize = isMobile and 18 or 22
-bbTitle.TextColor3 = Color3.new(1,1,1)
+bbTitle.Text = "♪ RELICSxyz"
 bbTitle.BackgroundTransparency = 1
-bbTitle.Position = UDim2.new(0, 16, 0, 0)
-bbTitle.Size = UDim2.new(1, -80, 1, 0)
+bbTitle.Position = UDim2.new(0, 12, 0, 0)
+bbTitle.Size = UDim2.new(1, -60, 1, 0)
 bbTitle.TextXAlignment = Enum.TextXAlignment.Left
+brickText(bbTitle, isMobile and 18 or 22)
 
 local bbMinBtn = Instance.new("TextButton", bbTopBar)
 bbMinBtn.Text = "—"
-bbMinBtn.Font = Enum.Font.GothamBold
-bbMinBtn.TextSize = 22
-bbMinBtn.Size = UDim2.new(0, 34, 0, 34)
-bbMinBtn.Position = UDim2.new(1, -44, 0, 4)
-bbMinBtn.BackgroundColor3 = Color3.fromRGB(30, 32, 42)
-bbMinBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", bbMinBtn).CornerRadius = UDim.new(0, 8)
+bbMinBtn.Size = UDim2.new(0, 30, 0, 30)
+bbMinBtn.Position = UDim2.new(1, -36, 0.5, -15)
+brickIcon(bbMinBtn, BRICK.BlueLight, BRICK.BlueDark, 18)
 
 makeDraggable(boomboxFrame, bbTopBar)
 
+local bbTop = 56
+local bbNavH = isMobile and 48 or 60
 local bbPages = Instance.new("Frame", boomboxFrame)
-bbPages.Position = UDim2.new(0, 0, 0, 46)
-bbPages.Size = UDim2.new(1, 0, 1, isMobile and -102 or -116)
+bbPages.Position = UDim2.new(0, 0, 0, bbTop)
+bbPages.Size = UDim2.new(1, 0, 1, -(bbTop + bbNavH + 16))
 bbPages.BackgroundTransparency = 1
 bbPages.ClipsDescendants = true
 
 local bbPageBrowse = Instance.new("Frame", bbPages); bbPageBrowse.Size = UDim2.new(1,0,1,0); bbPageBrowse.BackgroundTransparency = 1
 local bbPagePlay = Instance.new("Frame", bbPages); bbPagePlay.Size = UDim2.new(1,0,1,0); bbPagePlay.Position = UDim2.new(1,0,0,0); bbPagePlay.BackgroundTransparency = 1
-local bbPageFavs = Instance.new("ScrollingFrame", bbPages); bbPageFavs.Size = UDim2.new(1,0,1,0); bbPageFavs.Position = UDim2.new(2,0,0,0); bbPageFavs.BackgroundTransparency = 1; bbPageFavs.ScrollBarThickness = 2; bbPageFavs.CanvasSize = UDim2.new(0,0,0,0)
+local bbPageFavs = Instance.new("ScrollingFrame", bbPages); bbPageFavs.Size = UDim2.new(1,0,1,0); bbPageFavs.Position = UDim2.new(2,0,0,0); bbPageFavs.BackgroundTransparency = 1; bbPageFavs.BorderSizePixel = 0; bbPageFavs.ScrollBarThickness = 4; bbPageFavs.ScrollBarImageColor3 = BRICK.Orange; bbPageFavs.CanvasSize = UDim2.new(0,0,0,0)
 
--- Browse Page
+-- Browse Page : champ de recherche bleu foncé (style "NAME")
 local bbSearchBox = Instance.new("TextBox", bbPageBrowse)
 bbSearchBox.PlaceholderText = "⌕ Paste a Roblox ID..."
+bbSearchBox.PlaceholderColor3 = BRICK.TextSoft
 bbSearchBox.Text = ""
-bbSearchBox.Font = Enum.Font.GothamMedium
-bbSearchBox.TextSize = 15
-bbSearchBox.TextColor3 = Color3.new(1,1,1)
-bbSearchBox.BackgroundColor3 = Color3.fromRGB(26, 28, 38)
-bbSearchBox.Size = UDim2.new(1, -20, 0, isMobile and 38 or 44)
-bbSearchBox.Position = UDim2.new(0, 10, 0, 0)
+bbSearchBox.Size = UDim2.new(1, -24, 0, isMobile and 36 or 42)
+bbSearchBox.Position = UDim2.new(0, 12, 0, 2)
 bbSearchBox.ClearTextOnFocus = false
-Instance.new("UICorner", bbSearchBox).CornerRadius = UDim.new(0, 10)
+brickify(bbSearchBox, BRICK.BlueDeep, BRICK.BlueDark, 21, 3)
+brickText(bbSearchBox, 15)
 
 local bbScrollList = Instance.new("ScrollingFrame", bbPageBrowse)
-bbScrollList.Position = UDim2.new(0, 0, 0, isMobile and 46 or 52)
-bbScrollList.Size = UDim2.new(1, 0, 1, isMobile and -46 or -52)
+bbScrollList.Position = UDim2.new(0, 0, 0, isMobile and 46 or 54)
+bbScrollList.Size = UDim2.new(1, 0, 1, isMobile and -46 or -54)
 bbScrollList.BackgroundTransparency = 1
 bbScrollList.BorderSizePixel = 0
-bbScrollList.ScrollBarThickness = 2
+bbScrollList.ScrollBarThickness = 4
+bbScrollList.ScrollBarImageColor3 = BRICK.Orange
 bbScrollList.CanvasSize = UDim2.new(0,0,0,0)
+local bbListPad = Instance.new("UIPadding", bbScrollList)
+bbListPad.PaddingTop = UDim.new(0, 4); bbListPad.PaddingLeft = UDim.new(0, 8); bbListPad.PaddingRight = UDim.new(0, 8)
 local bbListLayout = Instance.new("UIListLayout", bbScrollList)
-bbListLayout.Padding = UDim.new(0, 6)
+bbListLayout.Padding = UDim.new(0, 8)
 bbListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 bbListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    bbScrollList.CanvasSize = UDim2.new(0,0,0, bbListLayout.AbsoluteContentSize.Y + 8)
+    bbScrollList.CanvasSize = UDim2.new(0,0,0, bbListLayout.AbsoluteContentSize.Y + 12)
 end)
 
 -- Play Page
+local BB_ICON_OFF = BRICK.BlueDeep
+local BB_ICON_OFF_EDGE = BRICK.BlueDark
+
 local bbBtnHeart = Instance.new("TextButton", bbPagePlay)
-bbBtnHeart.Text = "♡"
-bbBtnHeart.Font = Enum.Font.GothamBold
-bbBtnHeart.TextSize = 24
+bbBtnHeart.Text = "♥"
 bbBtnHeart.Size = UDim2.new(0, 36, 0, 36)
 bbBtnHeart.Position = UDim2.new(0, 12, 0, 4)
-bbBtnHeart.BackgroundTransparency = 1
-bbBtnHeart.TextColor3 = Color3.fromRGB(200,200,210)
+local bbHeartEdge = brickify(bbBtnHeart, BB_ICON_OFF, BB_ICON_OFF_EDGE, 8, 3)
+brickText(bbBtnHeart, 20)
+bbBtnHeart.AutoButtonColor = false
 
 local bbBtnLoop = Instance.new("TextButton", bbPagePlay)
 bbBtnLoop.Text = "∞"
-bbBtnLoop.Font = Enum.Font.GothamBold
-bbBtnLoop.TextSize = 22
 bbBtnLoop.Size = UDim2.new(0, 36, 0, 36)
-bbBtnLoop.Position = UDim2.new(0, 50, 0, 4)
-bbBtnLoop.BackgroundTransparency = 1
-bbBtnLoop.TextColor3 = Color3.fromRGB(160,165,180)
+bbBtnLoop.Position = UDim2.new(0, 56, 0, 4)
+local bbLoopEdge = brickify(bbBtnLoop, BB_ICON_OFF, BB_ICON_OFF_EDGE, 8, 3)
+brickText(bbBtnLoop, 22)
+bbBtnLoop.AutoButtonColor = false
 
+local function bbSetHeart(isFav)
+    bbBtnHeart.BackgroundColor3 = isFav and BRICK.Pink or BB_ICON_OFF
+    bbHeartEdge.Color = isFav and BRICK.PinkDark or BB_ICON_OFF_EDGE
+end
+local function bbSetLoop(isLooped)
+    bbBtnLoop.BackgroundColor3 = isLooped and BRICK.Purple or BB_ICON_OFF
+    bbLoopEdge.Color = isLooped and BRICK.PurpleDark or BB_ICON_OFF_EDGE
+end
+
+-- Pochette : grosse brique jaune
 local bbCoverSize = isMobile and 70 or 130
 local bbCover = Instance.new("Frame", bbPagePlay)
 bbCover.Size = UDim2.new(0, bbCoverSize, 0, bbCoverSize)
 bbCover.Position = UDim2.new(0.5, -bbCoverSize/2, 0, isMobile and 6 or 10)
-bbCover.BackgroundColor3 = Color3.fromRGB(35, 38, 55)
-Instance.new("UICorner", bbCover).CornerRadius = UDim.new(1,0)
-local bbCoverGrad = Instance.new("UIGradient", bbCover)
-bbCoverGrad.Color = ColorSequence.new(Color3.fromRGB(130,100,255), Color3.fromRGB(70,160,255))
+brickify(bbCover, BRICK.Yellow, BRICK.YellowDark, 14, 4)
 
 local bbCoverLabel = Instance.new("TextLabel", bbCover)
 bbCoverLabel.Size = UDim2.new(1,0,1,0)
 bbCoverLabel.BackgroundTransparency = 1
 bbCoverLabel.Text = "♪"
-bbCoverLabel.Font = Enum.Font.GothamBlack
-bbCoverLabel.TextSize = isMobile and 32 or 48
-bbCoverLabel.TextColor3 = Color3.new(1,1,1)
+brickText(bbCoverLabel, isMobile and 32 or 56)
 
 local bbLblSong = Instance.new("TextLabel", bbPagePlay)
 bbLblSong.Text = "No audio"
-bbLblSong.Font = Enum.Font.GothamBold
-bbLblSong.TextSize = isMobile and 16 or 20
-bbLblSong.TextColor3 = Color3.new(1,1,1)
 bbLblSong.BackgroundTransparency = 1
-bbLblSong.Position = UDim2.new(0, 14, 0, isMobile and 84 or 148)
-bbLblSong.Size = UDim2.new(1, -28, 0, 20)
+bbLblSong.Position = UDim2.new(0, 14, 0, isMobile and 84 or 150)
+bbLblSong.Size = UDim2.new(1, -28, 0, 22)
 bbLblSong.TextXAlignment = Enum.TextXAlignment.Left
 bbLblSong.TextTruncate = Enum.TextTruncate.AtEnd
+brickText(bbLblSong, isMobile and 16 or 20)
 
 local bbLblArtist = Instance.new("TextLabel", bbPagePlay)
 bbLblArtist.Text = "Browse to search"
-bbLblArtist.Font = Enum.Font.Gotham
-bbLblArtist.TextSize = 13
-bbLblArtist.TextColor3 = Color3.fromRGB(170,175,185)
 bbLblArtist.BackgroundTransparency = 1
-bbLblArtist.Position = UDim2.new(0, 14, 0, isMobile and 104 or 172)
+bbLblArtist.Position = UDim2.new(0, 14, 0, isMobile and 104 or 174)
 bbLblArtist.Size = UDim2.new(1, -80, 0, 16)
 bbLblArtist.TextXAlignment = Enum.TextXAlignment.Left
+brickText(bbLblArtist, 13, BRICK.TextSoft)
 
 local bbLblTime = Instance.new("TextLabel", bbPagePlay)
 bbLblTime.Text = "-0:00"
-bbLblTime.Font = Enum.Font.GothamMedium
-bbLblTime.TextSize = 12
-bbLblTime.TextColor3 = Color3.fromRGB(180,185,195)
 bbLblTime.BackgroundTransparency = 1
-bbLblTime.Position = UDim2.new(1, -50, 0, isMobile and 104 or 172)
-bbLblTime.Size = UDim2.new(0, 40, 0, 16)
+bbLblTime.Position = UDim2.new(1, -60, 0, isMobile and 104 or 174)
+bbLblTime.Size = UDim2.new(0, 46, 0, 16)
 bbLblTime.TextXAlignment = Enum.TextXAlignment.Right
+brickText(bbLblTime, 13, BRICK.TextSoft)
 
--- Progress Bar
+-- Progress Bar : piste bleu foncé + remplissage vert
 local bbBarBack = Instance.new("Frame", bbPagePlay)
-bbBarBack.Size = UDim2.new(1, -28, 0, 5)
-bbBarBack.Position = UDim2.new(0, 14, 0, isMobile and 124 or 196)
-bbBarBack.BackgroundColor3 = Color3.fromRGB(40, 44, 60)
-bbBarBack.BorderSizePixel = 0
-Instance.new("UICorner", bbBarBack).CornerRadius = UDim.new(1,0)
+bbBarBack.Size = UDim2.new(1, -28, 0, isMobile and 10 or 14)
+bbBarBack.Position = UDim2.new(0, 14, 0, isMobile and 124 or 198)
+brickify(bbBarBack, BRICK.BlueDeep, BRICK.BlueDark, 7, 3)
+bbBarBack.ClipsDescendants = true
 
 local bbBarFill = Instance.new("Frame", bbBarBack)
 bbBarFill.Size = UDim2.new(0,0,1,0)
-bbBarFill.BackgroundColor3 = Color3.new(1,1,1)
+bbBarFill.BackgroundColor3 = BRICK.Green
 bbBarFill.BorderSizePixel = 0
-Instance.new("UICorner", bbBarFill).CornerRadius = UDim.new(1,0)
-local bbBarGrad = Instance.new("UIGradient", bbBarFill)
-bbBarGrad.Color = ColorSequence.new(Color3.fromRGB(120,110,255), Color3.fromRGB(255,110,180))
+Instance.new("UICorner", bbBarFill).CornerRadius = UDim.new(0, 7)
+local bbBarShine = Instance.new("UIGradient", bbBarFill)
+bbBarShine.Color = ColorSequence.new(Color3.fromRGB(170, 255, 120), BRICK.Green)
+bbBarShine.Rotation = 90
 
+-- Bouton Play : brique verte (style "OK")
 local bbPlaySize = isMobile and 50 or 68
 local bbBtnPlay = Instance.new("TextButton", bbPagePlay)
 bbBtnPlay.Text = "▶"
-bbBtnPlay.Font = Enum.Font.GothamBlack
-bbBtnPlay.TextSize = isMobile and 22 or 28
 bbBtnPlay.Size = UDim2.new(0, bbPlaySize, 0, bbPlaySize)
-bbBtnPlay.Position = UDim2.new(0.5, -bbPlaySize/2, 0, isMobile and 138 or 218)
-bbBtnPlay.BackgroundColor3 = Color3.fromRGB(45, 48, 68)
-bbBtnPlay.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", bbBtnPlay).CornerRadius = UDim.new(1,0)
+bbBtnPlay.Position = UDim2.new(0.5, -bbPlaySize/2, 0, isMobile and 140 or 226)
+brickIcon(bbBtnPlay, BRICK.Green, BRICK.GreenDark, isMobile and 22 or 30)
+bbBtnPlay:FindFirstChild("BrickEdge").Thickness = 4
 
 -- Bottom Navigation
-local bbNavH = isMobile and 48 or 60
 local bbNav = Instance.new("Frame", boomboxFrame)
 bbNav.Size = UDim2.new(1, -16, 0, bbNavH)
-bbNav.Position = UDim2.new(0, 8, 1, -bbNavH - 6)
-bbNav.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
-bbNav.BorderSizePixel = 0
-Instance.new("UICorner", bbNav).CornerRadius = UDim.new(0, 14)
+bbNav.Position = UDim2.new(0, 8, 1, -bbNavH - 8)
+brickify(bbNav, BRICK.BlueDark, BRICK.BlueDeep, 10, 3)
 
 local function bbMakeNav(text, iconStr, xPos)
     local b = Instance.new("TextButton", bbNav)
-    b.Size = UDim2.new(0.333, 0, 1, 0)
-    b.Position = UDim2.new(xPos, 0, 0, 0)
-    b.BackgroundTransparency = 1
-    b.Text = iconStr.."\n"..text
-    b.Font = Enum.Font.GothamSemibold
-    b.TextSize = 11
-    b.TextColor3 = Color3.fromRGB(130,135,150)
-    b.TextYAlignment = Enum.TextYAlignment.Center
+    b.Size = UDim2.new(0.333, -8, 1, -10)
+    b.Position = UDim2.new(xPos, 5, 0, 5)
+    b.Text = iconStr.."  "..text
+    brickIcon(b, BRICK.BlueLight, BRICK.BlueDeep, isMobile and 12 or 14)
     return b
 end
 
 local bbNavBrowse = bbMakeNav("Browse", "◫", 0)
 local bbNavPlay = bbMakeNav("Play", "▶", 0.333)
-local bbNavFavs = bbMakeNav("Favorites", "♥", 0.666)
-bbNavBrowse.TextColor3 = Color3.new(1,1,1)
+local bbNavFavs = bbMakeNav("Favs", "♥", 0.666)
 
 local bbCurrentTab = 1
 local function bbSwitchPage(index)
@@ -1017,9 +1044,11 @@ local function bbSwitchPage(index)
     TweenService:Create(bbPageBrowse, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target}):Play()
     TweenService:Create(bbPagePlay, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target + UDim2.new(1,0,0,0)}):Play()
     TweenService:Create(bbPageFavs, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {Position = target + UDim2.new(2,0,0,0)}):Play()
-    bbNavBrowse.TextColor3 = index==1 and Color3.new(1,1,1) or Color3.fromRGB(130,135,150)
-    bbNavPlay.TextColor3 = index==2 and Color3.new(1,1,1) or Color3.fromRGB(130,135,150)
-    bbNavFavs.TextColor3 = index==3 and Color3.fromRGB(255,110,180) or Color3.fromRGB(130,135,150)
+    for i, navBtn in ipairs({bbNavBrowse, bbNavPlay, bbNavFavs}) do
+        local selected = (i == index)
+        navBtn.BackgroundColor3 = selected and BRICK.Orange or BRICK.BlueLight
+        navBtn:FindFirstChild("BrickEdge").Color = selected and BRICK.OrangeDark or BRICK.BlueDeep
+    end
 end
 
 bbNavBrowse.MouseButton1Click:Connect(function() bbSwitchPage(1) end)
@@ -1035,49 +1064,42 @@ end
 
 local function bbCreateItem(parent, id, name, creator)
     local item = Instance.new("TextButton")
-    item.Size = UDim2.new(1, -10, 0, isMobile and 50 or 60)
-    item.Position = UDim2.new(0, 5, 0, 0)
-    item.BackgroundColor3 = Color3.fromRGB(28, 30, 40)
+    item.Size = UDim2.new(1, -4, 0, isMobile and 50 or 60)
     item.AutoButtonColor = false
     item.Text = ""
+    brickify(item, BRICK.BlueLight, BRICK.BlueDark, 10, 3)
     item.Parent = parent
-    Instance.new("UICorner", item).CornerRadius = UDim.new(0, 10)
 
     local itemTitle = Instance.new("TextLabel", item)
     itemTitle.Text = name
-    itemTitle.Font = Enum.Font.GothamBold
-    itemTitle.TextSize = 15
-    itemTitle.TextColor3 = Color3.new(1,1,1)
     itemTitle.BackgroundTransparency = 1
-    itemTitle.Position = UDim2.new(0, 10, 0, 6)
-    itemTitle.Size = UDim2.new(1, -44, 0, 18)
+    itemTitle.Position = UDim2.new(0, 12, 0, 6)
+    itemTitle.Size = UDim2.new(1, -56, 0, 20)
     itemTitle.TextXAlignment = Enum.TextXAlignment.Left
     itemTitle.TextTruncate = Enum.TextTruncate.AtEnd
+    brickText(itemTitle, 16)
 
     local sub = Instance.new("TextLabel", item)
     sub.Text = "@"..creator
-    sub.Font = Enum.Font.Gotham
-    sub.TextSize = 12
-    sub.TextColor3 = Color3.fromRGB(160,165,175)
     sub.BackgroundTransparency = 1
-    sub.Position = UDim2.new(0, 10, 0, 26)
-    sub.Size = UDim2.new(1, -44, 0, 16)
+    sub.Position = UDim2.new(0, 12, 0, isMobile and 27 or 30)
+    sub.Size = UDim2.new(1, -56, 0, 16)
     sub.TextXAlignment = Enum.TextXAlignment.Left
+    brickText(sub, 12, BRICK.TextSoft)
 
+    local isFav = favorites[tostring(id)] ~= nil
     local heart = Instance.new("TextLabel", item)
-    heart.Text = favorites[tostring(id)] and "♥" or "♡"
-    heart.Font = Enum.Font.GothamBold
-    heart.TextSize = 18
-    heart.TextColor3 = Color3.fromRGB(255,110,180)
-    heart.BackgroundTransparency = 1
-    heart.Size = UDim2.new(0, 20, 0, 20)
-    heart.Position = UDim2.new(1, -30, 0.5, -10)
+    heart.Text = "♥"
+    heart.Size = UDim2.new(0, 28, 0, 28)
+    heart.Position = UDim2.new(1, -38, 0.5, -14)
+    brickify(heart, isFav and BRICK.Pink or BRICK.BlueDeep, isFav and BRICK.PinkDark or BRICK.BlueDark, 6, 2)
+    brickText(heart, 15)
 
     item.MouseEnter:Connect(function()
-        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(38,40,52)}):Play()
+        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = BRICK.BlueHover}):Play()
     end)
     item.MouseLeave:Connect(function()
-        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28,30,40)}):Play()
+        TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = BRICK.BlueLight}):Play()
     end)
 
     item.MouseButton1Click:Connect(function()
@@ -1088,8 +1110,7 @@ local function bbCreateItem(parent, id, name, creator)
         bbLblSong.Text = name
         bbLblArtist.Text = "@"..creator
         bbCoverLabel.Text = string.sub(name,1,1):upper()
-        bbBtnHeart.Text = favorites[tostring(id)] and "♥" or "♡"
-        bbBtnHeart.TextColor3 = favorites[tostring(id)] and Color3.fromRGB(255,110,180) or Color3.fromRGB(200,200,210)
+        bbSetHeart(favorites[tostring(id)] ~= nil)
         bbSwitchPage(2)
     end)
 
@@ -1126,19 +1147,17 @@ bbBtnHeart.MouseButton1Click:Connect(function()
     local id = tostring(bbCurrentSong.id)
     if favorites[id] then
         favorites[id] = nil
-        bbBtnHeart.Text = "♡"
-        bbBtnHeart.TextColor3 = Color3.fromRGB(200,200,210)
+        bbSetHeart(false)
     else
         favorites[id] = {name=bbCurrentSong.name, creator=bbCurrentSong.creator}
-        bbBtnHeart.Text = "♥"
-        bbBtnHeart.TextColor3 = Color3.fromRGB(255,110,180)
+        bbSetHeart(true)
     end
     saveFavs()
 end)
 
 bbBtnLoop.MouseButton1Click:Connect(function()
     sound.Looped = not sound.Looped
-    bbBtnLoop.TextColor3 = sound.Looped and Color3.fromRGB(120,140,255) or Color3.fromRGB(160,165,180)
+    bbSetLoop(sound.Looped)
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -1152,23 +1171,27 @@ end)
 local bbIsMinimized = false
 bbMinBtn.MouseButton1Click:Connect(function()
     bbIsMinimized = not bbIsMinimized
-    local targetHeight = bbIsMinimized and 60 or (isMobile and 280 or 600)
+    local targetHeight = bbIsMinimized and 56 or (isMobile and 280 or 600)
     TweenService:Create(boomboxFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {Size = UDim2.new(boomboxFrame.Size.X.Scale, boomboxFrame.Size.X.Offset, 0, targetHeight)}):Play()
     bbPages.Visible = not bbIsMinimized
     bbNav.Visible = not bbIsMinimized
 end)
 
-local bbFavLayout = Instance.new("UIListLayout", bbPageFavs)
-bbFavLayout.Padding = UDim.new(0,6)
-bbFavLayout.SortOrder = Enum.SortOrder.LayoutOrder
-bbFavLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    bbPageFavs.CanvasSize = UDim2.new(0,0,0, bbFavLayout.AbsoluteContentSize.Y + 10)
-end)
+local function bbAddFavLayout()
+    local favPad = Instance.new("UIPadding", bbPageFavs)
+    favPad.PaddingTop = UDim.new(0, 4); favPad.PaddingLeft = UDim.new(0, 8); favPad.PaddingRight = UDim.new(0, 8)
+    local favLayout = Instance.new("UIListLayout", bbPageFavs)
+    favLayout.Padding = UDim.new(0, 8)
+    favLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    favLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        bbPageFavs.CanvasSize = UDim2.new(0,0,0, favLayout.AbsoluteContentSize.Y + 12)
+    end)
+end
+bbAddFavLayout()
 
 bbNavFavs.MouseButton1Click:Connect(function()
     bbPageFavs:ClearAllChildren()
-    local layoutRef = Instance.new("UIListLayout", bbPageFavs)
-    layoutRef.Padding = UDim.new(0,6)
+    bbAddFavLayout()
     for id, data in pairs(favorites) do
         bbCreateItem(bbPageFavs, tonumber(id), data.name, data.creator)
     end
@@ -1261,7 +1284,7 @@ local function createEntityESP(model)
     label.TextColor3 = Color3.fromRGB(255, 70, 70)
     label.TextStrokeTransparency = 0
     label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
+    label.Font = BRICK_FONT
     label.Text = model.Name
     label.Parent = billboard
 
@@ -1417,7 +1440,7 @@ local function markMovingPart(part, distance)
     label.TextColor3 = Color3.fromRGB(255, 190, 65)
     label.TextStrokeTransparency = 0.15
     label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
+    label.Font = BRICK_FONT
     label.Text = "OBJET EN MOUVEMENT"
     label.Parent = billboard
 
@@ -1592,64 +1615,12 @@ confirmCloseBtn.MouseButton1Click:Connect(closeAdminPanelPermanently)
 -- --- RESET KEY (TEST) ---
 -- Supprime définitivement la clé enregistrée, ferme le script, annule ses effets
 -- et réaffiche la page de demande de clé.
-local resetConfirm = Instance.new("Frame", screenGui)
-resetConfirm.Name = "ResetKeyConfirmation"
-resetConfirm.AnchorPoint = Vector2.new(0.5, 0.5)
-resetConfirm.Position = UDim2.new(0.5, 0, 0.5, 0)
-resetConfirm.Size = UDim2.new(0, isMobile and 280 or 360, 0, 175)
-resetConfirm.BackgroundColor3 = Color3.fromRGB(20, 22, 31)
-resetConfirm.BorderSizePixel = 0
-resetConfirm.Visible = false
-resetConfirm.ZIndex = 50
-Instance.new("UICorner", resetConfirm).CornerRadius = UDim.new(0, 12)
-local resetStroke = Instance.new("UIStroke", resetConfirm)
-resetStroke.Color = Color3.fromRGB(255, 170, 60)
-resetStroke.Thickness = 1.5
-
-local resetTitle = Instance.new("TextLabel", resetConfirm)
-resetTitle.BackgroundTransparency = 1
-resetTitle.Position = UDim2.new(0, 14, 0, 12)
-resetTitle.Size = UDim2.new(1, -28, 0, 30)
-resetTitle.Font = Enum.Font.GothamBold
-resetTitle.Text = "Reset Key?"
-resetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-resetTitle.TextSize = isMobile and 16 or 18
-resetTitle.ZIndex = 51
-
-local resetText = Instance.new("TextLabel", resetConfirm)
-resetText.BackgroundTransparency = 1
-resetText.Position = UDim2.new(0, 16, 0, 45)
-resetText.Size = UDim2.new(1, -32, 0, 48)
-resetText.Font = Enum.Font.Gotham
-resetText.Text = "Your saved key will be permanently deleted. The script will close and the key page will open again."
-resetText.TextWrapped = true
-resetText.TextColor3 = Color3.fromRGB(205, 210, 220)
-resetText.TextSize = isMobile and 11 or 13
-resetText.ZIndex = 51
-
-local cancelResetBtn = Instance.new("TextButton", resetConfirm)
-cancelResetBtn.Name = "CancelReset"
-cancelResetBtn.Size = UDim2.new(0.43, 0, 0, 36)
-cancelResetBtn.Position = UDim2.new(0.05, 0, 1, -48)
-cancelResetBtn.BackgroundColor3 = Color3.fromRGB(55, 59, 72)
-cancelResetBtn.Text = "Cancel"
-cancelResetBtn.TextColor3 = Color3.new(1, 1, 1)
-cancelResetBtn.Font = Enum.Font.GothamSemibold
-cancelResetBtn.TextSize = isMobile and 12 or 14
-cancelResetBtn.ZIndex = 51
-Instance.new("UICorner", cancelResetBtn).CornerRadius = UDim.new(0, 7)
-
-local confirmResetBtn = Instance.new("TextButton", resetConfirm)
-confirmResetBtn.Name = "ConfirmReset"
-confirmResetBtn.Size = UDim2.new(0.43, 0, 0, 36)
-confirmResetBtn.Position = UDim2.new(0.52, 0, 1, -48)
-confirmResetBtn.BackgroundColor3 = Color3.fromRGB(190, 110, 30)
-confirmResetBtn.Text = "Reset Key"
-confirmResetBtn.TextColor3 = Color3.new(1, 1, 1)
-confirmResetBtn.Font = Enum.Font.GothamBold
-confirmResetBtn.TextSize = isMobile and 12 or 14
-confirmResetBtn.ZIndex = 51
-Instance.new("UICorner", confirmResetBtn).CornerRadius = UDim.new(0, 7)
+local resetConfirm, cancelResetBtn, confirmResetBtn = createBrickDialog(
+    "ResetKeyConfirmation",
+    "RESET KEY?",
+    "Your saved key will be permanently deleted. The script will close and the key page will open again.",
+    "RESET", BRICK.Orange, BRICK.OrangeDark
+)
 
 local function resetKeyPermanently()
     -- 1. Ferme le script et annule tous ses effets

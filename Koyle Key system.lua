@@ -180,9 +180,96 @@ local function LaunchFromKeyPage(ScreenGui, Status)
     else
         warn("[Koyle Key System] " .. tostring(err))
         Status.Text = tostring(err)
-        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+        Status.TextColor3 = Color3.fromRGB(255, 120, 120)
         Status.TextWrapped = true
     end
+end
+
+-------------------------------------------------------------------------------
+--! BRICK UI STYLE (même design que le hub)
+-------------------------------------------------------------------------------
+local BRICK = {
+    Blue       = Color3.fromRGB(36, 132, 226),
+    BlueLight  = Color3.fromRGB(64, 163, 245),
+    BlueDark   = Color3.fromRGB(20, 82, 168),
+    BlueDeep   = Color3.fromRGB(16, 62, 138),
+    Stud       = Color3.fromRGB(96, 178, 250),
+    Orange     = Color3.fromRGB(255, 138, 22),
+    OrangeDark = Color3.fromRGB(196, 86, 0),
+    Green      = Color3.fromRGB(86, 204, 42),
+    GreenDark  = Color3.fromRGB(36, 132, 18),
+    Red        = Color3.fromRGB(238, 64, 64),
+    RedDark    = Color3.fromRGB(160, 28, 36),
+    Text       = Color3.fromRGB(255, 255, 255),
+    TextSoft   = Color3.fromRGB(205, 230, 255),
+    TextStroke = Color3.fromRGB(12, 52, 118),
+    Success    = Color3.fromRGB(150, 255, 110),
+    Error      = Color3.fromRGB(255, 120, 120),
+    Warning    = Color3.fromRGB(255, 200, 90),
+}
+local BRICK_FONT = Enum.Font.FredokaOne
+
+local function brickText(label, size, color)
+    label.Font = BRICK_FONT
+    label.TextColor3 = color or BRICK.Text
+    if size then label.TextSize = size end
+    local s = Instance.new("UIStroke")
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+    s.Color = BRICK.TextStroke
+    s.Thickness = 1.5
+    s.Parent = label
+end
+
+local function brickify(gui, color, edgeColor, radius, edgeThickness)
+    gui.BackgroundColor3 = color
+    gui.BackgroundTransparency = 0
+    gui.BorderSizePixel = 0
+    Instance.new("UICorner", gui).CornerRadius = UDim.new(0, radius or 8)
+    local edge = Instance.new("UIStroke")
+    edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    edge.Color = edgeColor or BRICK.BlueDark
+    edge.Thickness = edgeThickness or 3
+    edge.Parent = gui
+    local shade = Instance.new("UIGradient")
+    shade.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(198, 204, 216))
+    shade.Rotation = 90
+    shade.Parent = gui
+end
+
+local function addStuds(frame, width, height)
+    local layer = Instance.new("Frame")
+    layer.Name = "Studs"
+    layer.BackgroundTransparency = 1
+    layer.Size = UDim2.fromScale(1, 1)
+    layer.ClipsDescendants = true
+    layer.ZIndex = 0
+    local pad = Instance.new("UIPadding", layer)
+    pad.PaddingLeft = UDim.new(0, 9)
+    pad.PaddingTop = UDim.new(0, 9)
+    local grid = Instance.new("UIGridLayout", layer)
+    grid.CellSize = UDim2.fromOffset(8, 8)
+    grid.CellPadding = UDim2.fromOffset(18, 18)
+    for _ = 1, math.ceil(width / 26) * math.ceil(height / 26) do
+        local stud = Instance.new("Frame")
+        stud.BorderSizePixel = 0
+        stud.BackgroundColor3 = BRICK.Stud
+        stud.BackgroundTransparency = 0.2
+        stud.ZIndex = 0
+        Instance.new("UICorner", stud).CornerRadius = UDim.new(1, 0)
+        stud.Parent = layer
+    end
+    layer.Parent = frame
+end
+
+local function brickButton(parent, text, color, edgeColor)
+    local b = Instance.new("TextButton", parent)
+    b.Text = text
+    b.AutoButtonColor = false
+    brickify(b, color, edgeColor, 8, 3)
+    brickText(b, 15)
+    b.MouseEnter:Connect(function() b.BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.18) end)
+    b.MouseLeave:Connect(function() b.BackgroundColor3 = color end)
+    return b
 end
 
 local function CreateGUI()
@@ -195,226 +282,159 @@ local function CreateGUI()
     local ScreenGui = Instance.new("ScreenGui", targetParent)
     ScreenGui.Name = "OYB_KeySystem"
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+    local PANEL_W = 340
     local MainFrame = Instance.new("Frame", ScreenGui)
-    MainFrame.Size = UDim2.new(0, 340, 0, 420)
+    MainFrame.Size = UDim2.new(0, PANEL_W, 0, 420)
     MainFrame.Position = UDim2.new(0.5, -170, 0.5, -210)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     MainFrame.Active = true;
     MainFrame.Draggable = true
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
-    
-    local mainStroke = Instance.new("UIStroke", MainFrame)
-    mainStroke.Thickness = 2;
-    mainStroke.Color = Color3.fromRGB(40, 40, 40)
+    brickify(MainFrame, BRICK.Blue, BRICK.BlueDark, 12, 4)
 
+    -- Barre de titre orange (style "LOGIN")
+    local Title = Instance.new("TextLabel", MainFrame)
+    Title.Size = UDim2.new(1, -66, 0, 42)
+    Title.Position = UDim2.new(0, 10, 0, 10)
+    Title.Text = string.upper(Config.HubName)
+    brickify(Title, BRICK.Orange, BRICK.OrangeDark, 8, 3)
+    brickText(Title, 20)
+
+    -- Bouton fermer : icône rouge ✕
     local CloseBtn = Instance.new("TextButton", MainFrame)
-    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-    CloseBtn.Position = UDim2.new(1, -35, 0, 10)
-    CloseBtn.BackgroundTransparency = 1
-    CloseBtn.Text = "X"
-    CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
-    CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 18
+    CloseBtn.Size = UDim2.new(0, 42, 0, 42)
+    CloseBtn.Position = UDim2.new(1, -52, 0, 10)
+    CloseBtn.Text = "✕"
+    CloseBtn.AutoButtonColor = false
     CloseBtn.ZIndex = 10
+    brickify(CloseBtn, BRICK.Red, BRICK.RedDark, 8, 3)
+    brickText(CloseBtn, 20)
     CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
-    local Title = Instance.new("TextLabel", MainFrame)
-    Title.Size = UDim2.new(1, 0, 0, 50)
-    Title.Text = Config.HubName
-    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    Title.TextColor3 = Color3.fromRGB(0, 170, 255)
-    Title.Font = Enum.Font.GothamBold;
-    Title.TextSize = 16
-    Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 15)
-
     local PromoText = Instance.new("TextLabel", MainFrame)
-    PromoText.Size = UDim2.new(0.9, 0, 0, 50)
-    PromoText.Position = UDim2.new(0.05, 0, 0, 50)
+    PromoText.Size = UDim2.new(0.9, 0, 0, 44)
+    PromoText.Position = UDim2.new(0.05, 0, 0, 58)
     PromoText.BackgroundTransparency = 1
     PromoText.Text = Config.HubDescription
-    PromoText.TextColor3 = Color3.fromRGB(0, 170, 255)
-    PromoText.Font = Enum.Font.GothamBold;
-    PromoText.TextSize = 14
     PromoText.TextWrapped = true
+    brickText(PromoText, 15)
 
-    local function AddRainbowStroke(parent)
-        local stroke = Instance.new("UIStroke", parent)
-        stroke.Thickness = 2
-        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        task.spawn(function()
-            while task.wait() do
-                local hue = tick() % 5 / 5
-                stroke.Color = Color3.fromHSV(hue, 1, 1)
-            end
-        end)
+    local currentYOffset = 108
+
+    local function addSocialButton(text, color, edgeColor, iconId, onClick)
+        local btn = brickButton(MainFrame, "      " .. text, color, edgeColor)
+        btn.Size = UDim2.new(0.85, 0, 0, 36)
+        btn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
+        btn.TextSize = 14
+
+        local icon = Instance.new("ImageLabel", btn)
+        icon.Size = UDim2.new(0, 20, 0, 20)
+        icon.Position = UDim2.new(0.1, 0, 0.5, -10)
+        icon.BackgroundTransparency = 1
+        icon.Image = iconId
+
+        btn.MouseButton1Click:Connect(onClick)
+        currentYOffset = currentYOffset + 46
     end
 
-    local currentYOffset = 105
-
     if Config.ShowDiscord then
-        local DiscordBtn = Instance.new("TextButton", MainFrame)
-        DiscordBtn.Size = UDim2.new(0.85, 0, 0, 35)
-        DiscordBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
-        DiscordBtn.Text = "      JOIN DISCORD"
-        DiscordBtn.Font = Enum.Font.GothamBold;
-        DiscordBtn.TextSize = 14
-        DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-        DiscordBtn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", DiscordBtn)
-        AddRainbowStroke(DiscordBtn)
-
-        local DiscordIcon = Instance.new("ImageLabel", DiscordBtn)
-        DiscordIcon.Size = UDim2.new(0, 20, 0, 20)
-        DiscordIcon.Position = UDim2.new(0.1, 0, 0.5, -10)
-        DiscordIcon.BackgroundTransparency = 1
-        DiscordIcon.Image = "rbxassetid://18505728201"
-        
-        DiscordBtn.MouseButton1Click:Connect(function()
+        addSocialButton("JOIN DISCORD", Color3.fromRGB(88, 101, 242), Color3.fromRGB(52, 60, 170), "rbxassetid://18505728201", function()
             fSetClipboard(Config.DiscordURL)
             local Status = MainFrame:FindFirstChild("StatusLabel")
             if Status then 
                 Status.Text = "Discord Link Copied!"
-                Status.TextColor3 = Color3.fromRGB(88, 101, 242)
+                Status.TextColor3 = BRICK.TextSoft
             end
             local inviteCode = string.match(Config.DiscordURL, "discord%.gg/([%w-]+)")
             if syn and syn.request and inviteCode then
                 syn.request({Url = "http://localhost:1111/discord?invite=" .. inviteCode, Method = "GET"})
             end
         end)
-        
-        currentYOffset = currentYOffset + 45
     end
 
     if Config.ShowInstagram then
-        local InstaBtn = Instance.new("TextButton", MainFrame)
-        InstaBtn.Size = UDim2.new(0.85, 0, 0, 35)
-        InstaBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
-        InstaBtn.Text = "      FOLLOW INSTAGRAM"
-        InstaBtn.Font = Enum.Font.GothamBold;
-        InstaBtn.TextSize = 14
-        InstaBtn.BackgroundColor3 = Color3.fromRGB(225, 48, 108)
-        InstaBtn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", InstaBtn)
-        AddRainbowStroke(InstaBtn)
-
-        local InstaIcon = Instance.new("ImageLabel", InstaBtn)
-        InstaIcon.Size = UDim2.new(0, 20, 0, 20)
-        InstaIcon.Position = UDim2.new(0.1, 0, 0.5, -10)
-        InstaIcon.BackgroundTransparency = 1
-        InstaIcon.Image = "rbxassetid://18355586382"
-        
-        InstaBtn.MouseButton1Click:Connect(function()
+        addSocialButton("FOLLOW INSTAGRAM", Color3.fromRGB(225, 48, 108), Color3.fromRGB(150, 20, 70), "rbxassetid://18355586382", function()
             fSetClipboard(Config.InstagramURL)
             local Status = MainFrame:FindFirstChild("StatusLabel")
             if Status then 
                 Status.Text = "Instagram Link Copied!"
-                Status.TextColor3 = Color3.fromRGB(225, 48, 108)
+                Status.TextColor3 = BRICK.TextSoft
             end
         end)
-        
-        currentYOffset = currentYOffset + 45
     end
     
     if Config.ShowYoutube then
-        local YTBtn = Instance.new("TextButton", MainFrame)
-        YTBtn.Size = UDim2.new(0.85, 0, 0, 35)
-        YTBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
-        YTBtn.Text = "      SUBSCRIBE YOUTUBE"
-        YTBtn.Font = Enum.Font.GothamBold;
-        YTBtn.TextSize = 14
-        YTBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        YTBtn.TextColor3 = Color3.new(1, 1, 1)
-        Instance.new("UICorner", YTBtn)
-        AddRainbowStroke(YTBtn)
-
-        local YTIcon = Instance.new("ImageLabel", YTBtn)
-        YTIcon.Size = UDim2.new(0, 20, 0, 20)
-        YTIcon.Position = UDim2.new(0.1, 0, 0.5, -10)
-        YTIcon.BackgroundTransparency = 1
-        YTIcon.Image = "rbxassetid://82532989017804"
-        
-        YTBtn.MouseButton1Click:Connect(function()
+        addSocialButton("SUBSCRIBE YOUTUBE", Color3.fromRGB(235, 30, 30), Color3.fromRGB(150, 10, 10), "rbxassetid://82532989017804", function()
             fSetClipboard(Config.YoutubeURL)
             local Status = MainFrame:FindFirstChild("StatusLabel")
             if Status then
                 Status.Text = "YouTube Link Copied!"
-                Status.TextColor3 = Color3.fromRGB(255, 0, 0)
+                Status.TextColor3 = BRICK.TextSoft
             end
         end)
-        
-        currentYOffset = currentYOffset + 45
     end
 
+    -- Champ de clé : pilule bleu foncé (style "PASSWORD")
     local KeyInput = Instance.new("TextBox", MainFrame)
-    KeyInput.Size = UDim2.new(0.85, 0, 0, 40)
-    KeyInput.Position = UDim2.new(0.075, 0, 0, currentYOffset + 15)
-    KeyInput.PlaceholderText = "Enter Key..."
+    KeyInput.Size = UDim2.new(0.85, 0, 0, 42)
+    KeyInput.Position = UDim2.new(0.075, 0, 0, currentYOffset + 12)
+    KeyInput.PlaceholderText = "ENTER KEY..."
+    KeyInput.PlaceholderColor3 = BRICK.TextSoft
     KeyInput.Text = ""
-    KeyInput.Font = Enum.Font.GothamSemibold;
-    KeyInput.TextSize = 14
-    KeyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25);
-    KeyInput.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", KeyInput)
+    KeyInput.ClearTextOnFocus = false
+    brickify(KeyInput, BRICK.BlueDeep, BRICK.BlueDark, 21, 3)
+    brickText(KeyInput, 15)
 
-    local VerifyBtn = Instance.new("TextButton", MainFrame)
-    VerifyBtn.Size = UDim2.new(0.4, 0, 0, 40)
-    VerifyBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset + 65)
-    VerifyBtn.Text = "VERIFY"
-    VerifyBtn.Font = Enum.Font.GothamBold;
-    VerifyBtn.TextSize = 14
-    VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255);
-    VerifyBtn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", VerifyBtn)
+    -- VERIFY = brique verte (style "OK"), GET KEY = brique orange
+    local VerifyBtn = brickButton(MainFrame, "VERIFY", BRICK.Green, BRICK.GreenDark)
+    VerifyBtn.Size = UDim2.new(0.4, 0, 0, 42)
+    VerifyBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset + 66)
 
-    local GetKeyBtn = Instance.new("TextButton", MainFrame)
-    GetKeyBtn.Size = UDim2.new(0.4, 0, 0, 40)
-    GetKeyBtn.Position = UDim2.new(0.525, 0, 0, currentYOffset + 65)
-    GetKeyBtn.Text = "GET KEY"
-    GetKeyBtn.Font = Enum.Font.GothamBold;
-    GetKeyBtn.TextSize = 14
-    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35);
-    GetKeyBtn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", GetKeyBtn)
+    local GetKeyBtn = brickButton(MainFrame, "GET KEY", BRICK.Orange, BRICK.OrangeDark)
+    GetKeyBtn.Size = UDim2.new(0.4, 0, 0, 42)
+    GetKeyBtn.Position = UDim2.new(0.525, 0, 0, currentYOffset + 66)
 
     local Status = Instance.new("TextLabel", MainFrame)
     Status.Name = "StatusLabel"
-    Status.Size = UDim2.new(1, 0, 0, 30)
-    Status.Position = UDim2.new(0, 0, 0, currentYOffset + 115)
+    Status.Size = UDim2.new(0.9, 0, 0, 34)
+    Status.Position = UDim2.new(0.05, 0, 0, currentYOffset + 116)
     Status.BackgroundTransparency = 1
     Status.Text = "Waiting for input..."
-    Status.TextColor3 = Color3.fromRGB(150, 150, 150)
-    Status.Font = Enum.Font.Gotham;
-    Status.TextSize = 12
+    Status.TextWrapped = true
+    brickText(Status, 13, BRICK.TextSoft)
     
-    MainFrame.Size = UDim2.new(0, 340, 0, currentYOffset + 160)
+    local panelH = currentYOffset + 160
+    MainFrame.Size = UDim2.new(0, PANEL_W, 0, panelH)
+    addStuds(MainFrame, PANEL_W, panelH)
 
     VerifyBtn.MouseButton1Click:Connect(function()
         local key = KeyInput.Text
-        if key == "" then Status.Text = "Enter a key!"; return end
+        if key == "" then Status.Text = "Enter a key!"; Status.TextColor3 = BRICK.Warning; return end
         Status.Text = "Verifying..."
+        Status.TextColor3 = BRICK.TextSoft
         local success, msg = redeemKey(key)
         if success then
             Status.Text = "Success! Loading..."
-            Status.TextColor3 = Color3.fromRGB(0, 255, 100)
+            Status.TextColor3 = BRICK.Success
             task.wait(0.5)
             LaunchFromKeyPage(ScreenGui, Status)
         else
             Status.Text = msg
-            Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+            Status.TextColor3 = BRICK.Error
         end
     end)
 
     GetKeyBtn.MouseButton1Click:Connect(function()
         Status.Text = "Getting Link..."
+        Status.TextColor3 = BRICK.TextSoft
         local success, link = cacheLink()
         if success then
             fSetClipboard(link)
             Status.Text = "Link Copied!"
-            Status.TextColor3 = Color3.fromRGB(0, 170, 255)
+            Status.TextColor3 = BRICK.Success
         else
             Status.Text = tostring(link) 
-            Status.TextColor3 = Color3.fromRGB(255, 100, 100)
+            Status.TextColor3 = BRICK.Error
         end
     end)
 
@@ -426,12 +446,12 @@ local function CreateGUI()
                 local success, msg = redeemKey(savedKey)
                 if success then
                     Status.Text = "Auto-login success!"
-                    Status.TextColor3 = Color3.fromRGB(0, 255, 100)
+                    Status.TextColor3 = BRICK.Success
                     task.wait(0.5)
                     LaunchFromKeyPage(ScreenGui, Status)
                 else
                     Status.Text = "Saved key expired or invalid."
-                    Status.TextColor3 = Color3.fromRGB(255, 150, 0)
+                    Status.TextColor3 = BRICK.Warning
                 end
             end)
         end

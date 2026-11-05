@@ -1418,7 +1418,7 @@ local function markMovingPart(part, distance)
     label.TextStrokeTransparency = 0.15
     label.TextScaled = true
     label.Font = Enum.Font.GothamBold
-    label.Text = "MOVING OBJECT"
+    label.Text = "OBJET EN MOUVEMENT"
     label.Parent = billboard
 
     movingESPObjects[part] = {
@@ -1482,7 +1482,7 @@ local function updateMovingESP()
                     if data and data.highlight then
                         local distance = (root.Position - part.Position).Magnitude
                         data.distance = distance
-                        data.label.Text = string.format("MOVING  •  %d studs", math.floor(distance))
+                        data.label.Text = string.format("EN MOUVEMENT  •  %d studs", math.floor(distance))
                         data.billboard.Enabled = distance <= MOVING_ESP_RADIUS
                     end
                 end
@@ -1538,7 +1538,7 @@ local function setMovingESP(active)
     end)
 end
 
-addToggle("16. 🟠 Moving Objects ESP", setMovingESP)
+addToggle("16. 🟠 ESP Objets en mouvement", setMovingESP)
 
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false

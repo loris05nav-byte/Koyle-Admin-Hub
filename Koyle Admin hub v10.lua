@@ -43,7 +43,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- --- STATES & VARIABLES ---
 local states = {
     noclip = false, godmode = false, dash = false, fly = false,
-    esp = false, entitiesESP = false, infjump = false, infzoom = false, xray = false, aimbot = false
+    esp = false, entitiesESP = false, movingESP = false, infjump = false, infzoom = false, xray = false, aimbot = false
 }
 
 local connections = {}
@@ -1345,6 +1345,201 @@ end
 
 addToggle("15. 🔴 Entity ESP", setEntitiesESP)
 
+-- --- MOVING OBJECTS ESP (OPTIMIZED) ---
+-- Does not scan the whole map continuously: only queries an area around the player.
+local movingESPObjects = {}
+local movingESPConnection = nil
+local movingESPAddedConnection = nil
+local movingESPAccumulator = 0
+local MOVING_ESP_RADIUS = 240
+local MOVING_ESP_MAX_PARTS = 350
+local MOVING_ESP_MAX_MARKERS = 80
+local MOVING_ESP_INTERVAL = 0.4
+local MOVING_ESP_MIN_DELTA = 1.25
+local MOVING_ESP_FORGET_AFTER = 2.0
+
+local function clearMovingESPPart(part)
+    local data = movingESPObjects[part]
+    if not data then return end
+    if data.highlight then data.highlight:Destroy() end
+    if data.billboard then data.billboard:Destroy() end
+    movingESPObjects[part] = nil
+end
+
+local function stopMovingESP()
+    if movingESPConnection then
+        movingESPConnection:Disconnect()
+        movingESPConnection = nil
+    end
+    if movingESPAddedConnection then
+        movingESPAddedConnection:Disconnect()
+        movingESPAddedConnection = nil
+    end
+    for part in pairs(movingESPObjects) do
+        clearMovingESPPart(part)
+    end
+    movingESPAccumulator = 0
+    states.movingESP = false
+end
+
+local function markMovingPart(part, distance)
+    if movingESPObjects[part] or not part.Parent then return end
+
+    local count = 0
+    for _, existingData in pairs(movingESPObjects) do
+        if existingData.highlight then count += 1 end
+    end
+    if count >= MOVING_ESP_MAX_MARKERS then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "AdminMovingESP_Highlight"
+    highlight.Adornee = part
+    highlight.FillColor = Color3.fromRGB(255, 170, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 245, 190)
+    highlight.FillTransparency = 0.72
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = screenGui
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "AdminMovingESP_Info"
+    billboard.Adornee = part
+    billboard.Size = UDim2.fromOffset(160, 34)
+    billboard.StudsOffset = Vector3.new(0, 1.8, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = MOVING_ESP_RADIUS
+    billboard.Parent = screenGui
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Info"
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 190, 65)
+    label.TextStrokeTransparency = 0.15
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = "MOVING OBJECT"
+    label.Parent = billboard
+
+    movingESPObjects[part] = {
+        highlight = highlight,
+        billboard = billboard,
+        label = label,
+        lastPosition = part.Position,
+        lastMovedAt = os.clock(),
+        distance = distance or 0,
+    }
+end
+
+local function updateMovingESP()
+    local root = getRoot()
+    if not root then return end
+
+    local overlap = OverlapParams.new()
+    overlap.FilterType = Enum.RaycastFilterType.Exclude
+    overlap.FilterDescendantsInstances = player.Character and {player.Character} or {}
+    overlap.MaxParts = MOVING_ESP_MAX_PARTS
+
+    local ok, nearbyParts = pcall(function()
+        return Workspace:GetPartBoundsInRadius(root.Position, MOVING_ESP_RADIUS, overlap)
+    end)
+    if not ok or not nearbyParts then return end
+
+    local now = os.clock()
+    local seen = {}
+
+    for _, part in ipairs(nearbyParts) do
+        if part:IsA("BasePart") and part.Parent then
+            -- Ignore parts belonging to characters; player ESP already covers players.
+            local ancestor = part:FindFirstAncestorOfClass("Model")
+            local humanoidModel = ancestor and ancestor:FindFirstChildOfClass("Humanoid")
+            if not humanoidModel then
+                seen[part] = true
+                local data = movingESPObjects[part]
+                if not data then
+                    -- First observation is only a baseline, not proof of movement.
+                    movingESPObjects[part] = {
+                        lastPosition = part.Position,
+                        lastMovedAt = now,
+                        candidate = true,
+                    }
+                else
+                    local delta = (part.Position - data.lastPosition).Magnitude
+                    if delta >= MOVING_ESP_MIN_DELTA then
+                        data.lastMovedAt = now
+                        data.lastPosition = part.Position
+                        if data.candidate then
+                            data.candidate = nil
+                            movingESPObjects[part] = nil
+                            markMovingPart(part, (root.Position - part.Position).Magnitude)
+                            data = movingESPObjects[part]
+                        elseif data.highlight then
+                            data.distance = (root.Position - part.Position).Magnitude
+                        end
+                    else
+                        data.lastPosition = part.Position
+                    end
+                    if data and data.highlight then
+                        local distance = (root.Position - part.Position).Magnitude
+                        data.distance = distance
+                        data.label.Text = string.format("MOVING  •  %d studs", math.floor(distance))
+                        data.billboard.Enabled = distance <= MOVING_ESP_RADIUS
+                    end
+                end
+            end
+        end
+    end
+
+    -- Drop candidates/markers that leave the scan area; markers are only retained briefly
+    -- after movement stops, so the ESP does not accumulate across a huge map.
+    for part, data in pairs(movingESPObjects) do
+        if not part.Parent then
+            clearMovingESPPart(part)
+        elseif not seen[part] then
+            if data.candidate or (now - (data.lastMovedAt or now)) > MOVING_ESP_FORGET_AFTER then
+                clearMovingESPPart(part)
+            end
+        end
+    end
+end
+
+local function setMovingESP(active)
+    states.movingESP = active
+    if movingESPConnection then
+        movingESPConnection:Disconnect()
+        movingESPConnection = nil
+    end
+    if movingESPAddedConnection then
+        movingESPAddedConnection:Disconnect()
+        movingESPAddedConnection = nil
+    end
+
+    if not active then
+        for part in pairs(movingESPObjects) do
+            clearMovingESPPart(part)
+        end
+        return
+    end
+
+    movingESPAccumulator = MOVING_ESP_INTERVAL
+    movingESPConnection = RunService.Heartbeat:Connect(function(dt)
+        if not states.movingESP then return end
+        movingESPAccumulator += dt
+        if movingESPAccumulator >= MOVING_ESP_INTERVAL then
+            movingESPAccumulator = 0
+            updateMovingESP()
+        end
+    end)
+
+    movingESPAddedConnection = Workspace.DescendantRemoving:Connect(function(instance)
+        if instance:IsA("BasePart") then
+            clearMovingESPPart(instance)
+        end
+    end)
+end
+
+addToggle("16. 🟠 Moving Objects ESP", setMovingESP)
+
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false
 local function closeAdminPanelPermanently()
@@ -1355,6 +1550,7 @@ local function closeAdminPanelPermanently()
     for key in pairs(states) do states[key] = false end
     stopXRay()
     setEntitiesESP(false)
+    stopMovingESP()
     removePlayerESP()
 
     for name, connection in pairs(connections) do
@@ -1487,7 +1683,7 @@ local function resetKeyPermanently()
     end)
 end
 
-addToggle("16. 🔑 Reset Key (Test)", function()
+addToggle("17. 🔑 Reset Key (Test)", function()
     resetConfirm.Visible = true
 end)
 cancelResetBtn.MouseButton1Click:Connect(function()

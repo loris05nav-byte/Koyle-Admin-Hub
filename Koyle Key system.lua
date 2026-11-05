@@ -1,11 +1,10 @@
-
 local Config = {
     -- [1] PlatoBoost Settings
     ServiceId       = 36631, -- Your PlatoBoost Service ID
     PlatoSecret     = "daa22a8e-ab4d-4204-bb2a-46c7834ca80c", -- Your PlatoBoost Secret Key
 
     -- [2] Anti-Bypass / Global Secret Variable
-    Secret          = "0652269804Xd", -- This makes the script ONLY run from the key script. Even if they copy the original obfuscated script to bypass the key, they won't be able to!
+    Secret          = "0652269804Xd", -- Matches SecretKey in the Main Script
     
     -- [3] Scripts & Links
     MainScriptURL   = "https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Lolo%20Hub%20v2.lua", -- The raw URL of your main script
@@ -45,13 +44,12 @@ local lEncode, lDecode, lDigest = a3, aw, Z;
 local useNonce = true 
 
 local function safeRequest(options)
-    local req = request or http_request or syn_request or (http and http.request )
+    local req = request or http_request or syn_request or (http and http.request)
     if not req then return nil, "HTTP requests not supported" end
     local success, response = pcall(function() return req(options) end)
     if success and type(response) == "table" then 
         return response 
     else 
-       
         return nil, "Connection Error: " .. tostring(response or "Unknown") 
     end
 end
@@ -63,7 +61,7 @@ local fGetHwid = gethwid or function() return game:GetService("RbxAnalyticsServi
 local cachedLink, cachedTime = "", 0
 local host = "https://api.platoboost.com"
 
-local function checkConnectivity( )
+local function checkConnectivity()
     local response, err = safeRequest({Url = host .. "/public/connectivity", Method = "GET"})
     if not response or (response.StatusCode ~= 200 and response.StatusCode ~= 429) then
         host = "https://api.platoboost.net"
@@ -170,12 +168,12 @@ local function CreateGUI()
     MainFrame.Size = UDim2.new(0, 340, 0, 420)
     MainFrame.Position = UDim2.new(0.5, -170, 0.5, -210)
     MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    MainFrame.Active = true;
+    MainFrame.Active = true
     MainFrame.Draggable = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
     
     local mainStroke = Instance.new("UIStroke", MainFrame)
-    mainStroke.Thickness = 2;
+    mainStroke.Thickness = 2
     mainStroke.Color = Color3.fromRGB(40, 40, 40)
 
     local CloseBtn = Instance.new("TextButton", MainFrame)
@@ -194,7 +192,7 @@ local function CreateGUI()
     Title.Text = Config.HubName
     Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Title.TextColor3 = Color3.fromRGB(0, 170, 255)
-    Title.Font = Enum.Font.GothamBold;
+    Title.Font = Enum.Font.GothamBold
     Title.TextSize = 16
     Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 15)
 
@@ -204,7 +202,7 @@ local function CreateGUI()
     PromoText.BackgroundTransparency = 1
     PromoText.Text = Config.HubDescription
     PromoText.TextColor3 = Color3.fromRGB(0, 170, 255)
-    PromoText.Font = Enum.Font.GothamBold;
+    PromoText.Font = Enum.Font.GothamBold
     PromoText.TextSize = 14
     PromoText.TextWrapped = true
 
@@ -227,7 +225,7 @@ local function CreateGUI()
         DiscordBtn.Size = UDim2.new(0.85, 0, 0, 35)
         DiscordBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
         DiscordBtn.Text = "      JOIN DISCORD"
-        DiscordBtn.Font = "GothamBold";
+        DiscordBtn.Font = Enum.Font.GothamBold
         DiscordBtn.TextSize = 14
         DiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
         DiscordBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -261,7 +259,7 @@ local function CreateGUI()
         InstaBtn.Size = UDim2.new(0.85, 0, 0, 35)
         InstaBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
         InstaBtn.Text = "      FOLLOW INSTAGRAM"
-        InstaBtn.Font = "GothamBold";
+        InstaBtn.Font = Enum.Font.GothamBold
         InstaBtn.TextSize = 14
         InstaBtn.BackgroundColor3 = Color3.fromRGB(225, 48, 108)
         InstaBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -291,7 +289,7 @@ local function CreateGUI()
         YTBtn.Size = UDim2.new(0.85, 0, 0, 35)
         YTBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset)
         YTBtn.Text = "      SUBSCRIBE YOUTUBE"
-        YTBtn.Font = "GothamBold";
+        YTBtn.Font = Enum.Font.GothamBold
         YTBtn.TextSize = 14
         YTBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         YTBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -321,9 +319,9 @@ local function CreateGUI()
     KeyInput.Position = UDim2.new(0.075, 0, 0, currentYOffset + 15)
     KeyInput.PlaceholderText = "Enter Key..."
     KeyInput.Text = ""
-    KeyInput.Font = Enum.Font.GothamSemibold;
+    KeyInput.Font = Enum.Font.GothamSemibold
     KeyInput.TextSize = 14
-    KeyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25);
+    KeyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     KeyInput.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", KeyInput)
 
@@ -331,9 +329,9 @@ local function CreateGUI()
     VerifyBtn.Size = UDim2.new(0.4, 0, 0, 40)
     VerifyBtn.Position = UDim2.new(0.075, 0, 0, currentYOffset + 65)
     VerifyBtn.Text = "VERIFY"
-    VerifyBtn.Font = "GothamBold";
+    VerifyBtn.Font = Enum.Font.GothamBold
     VerifyBtn.TextSize = 14
-    VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255);
+    VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     VerifyBtn.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", VerifyBtn)
 
@@ -341,9 +339,9 @@ local function CreateGUI()
     GetKeyBtn.Size = UDim2.new(0.4, 0, 0, 40)
     GetKeyBtn.Position = UDim2.new(0.525, 0, 0, currentYOffset + 65)
     GetKeyBtn.Text = "GET KEY"
-    GetKeyBtn.Font = "GothamBold";
+    GetKeyBtn.Font = Enum.Font.GothamBold
     GetKeyBtn.TextSize = 14
-    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35);
+    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     GetKeyBtn.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", GetKeyBtn)
 
@@ -354,7 +352,7 @@ local function CreateGUI()
     Status.BackgroundTransparency = 1
     Status.Text = "Waiting for input..."
     Status.TextColor3 = Color3.fromRGB(150, 150, 150)
-    Status.Font = Enum.Font.Gotham;
+    Status.Font = Enum.Font.Gotham
     Status.TextSize = 12
     
     MainFrame.Size = UDim2.new(0, 340, 0, currentYOffset + 160)

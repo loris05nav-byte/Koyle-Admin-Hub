@@ -319,7 +319,7 @@ local function CreateGUI()
     local CloseBtn = Instance.new("TextButton", MainFrame)
     CloseBtn.Size = UDim2.new(0, 42, 0, 42)
     CloseBtn.Position = UDim2.new(1, -52, 0, 10)
-    CloseBtn.Text = "✕"
+    CloseBtn.Text = "X"
     CloseBtn.AutoButtonColor = false
     CloseBtn.ZIndex = 10
     brickify(CloseBtn, BRICK.Red, BRICK.RedDark, 8, 3)

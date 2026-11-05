@@ -169,11 +169,20 @@ local function brickPanel(frame, width, height)
     addStuds(frame, width, height)
 end
 
+-- Police pour les symboles (▶ ♥ ∞ ♪ ✓...) que FredokaOne ne contient pas
+local GLYPH_FONT = Enum.Font.GothamBlack
+local function glyph(obj)
+    obj.Font = GLYPH_FONT
+    return obj
+end
+
 -- Bouton-icône carré coloré (✕ rouge, ✓ vert, etc.)
 local function brickIcon(btn, color, edgeColor, textSize)
     brickify(btn, color, edgeColor, 8, 3)
     brickText(btn, textSize)
-    btn.AutoButtonColor = false
+    if btn:IsA("GuiButton") then
+        btn.AutoButtonColor = false
+    end
 end
 
 -- --- BOOMBOX CORE CONFIGURATION ---
@@ -324,15 +333,15 @@ local minBtn = Instance.new("TextButton", header)
 minBtn.Name = "MinimizeButton"
 minBtn.Size = UDim2.new(0, iconSize, 0, iconSize)
 minBtn.Position = UDim2.new(1, -2 * (iconSize + 8), 0.5, -iconSize/2)
-minBtn.Text = "—"
-brickIcon(minBtn, BRICK.BlueLight, BRICK.BlueDark, sizes.txt + 2)
+minBtn.Text = "-"
+brickIcon(minBtn, BRICK.BlueLight, BRICK.BlueDark, sizes.txt + 8)
 
 -- Close Button : icône rouge ✕ (avec confirmation)
 local closeBtn = Instance.new("TextButton", header)
 closeBtn.Name = "CloseButton"
 closeBtn.Size = UDim2.new(0, iconSize, 0, iconSize)
 closeBtn.Position = UDim2.new(1, -(iconSize + 8), 0.5, -iconSize/2)
-closeBtn.Text = "✕"
+closeBtn.Text = "X"
 brickIcon(closeBtn, BRICK.Red, BRICK.RedDark, sizes.txt + 2)
 closeBtn.MouseEnter:Connect(function() closeBtn.BackgroundColor3 = Color3.fromRGB(255, 100, 100) end)
 closeBtn.MouseLeave:Connect(function() closeBtn.BackgroundColor3 = BRICK.Red end)
@@ -546,6 +555,7 @@ local function addToggle(txt, cb)
     statusIndicator.Text = ""
     local statusEdge = brickify(statusIndicator, BRICK.BlueDeep, BRICK.BlueDark, 6, 2)
     brickText(statusIndicator, sizes.txt)
+    glyph(statusIndicator)
 
     local active = false
     local hovered = false
@@ -820,7 +830,7 @@ addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
     if specWin.Visible then
         for _, v in pairs(specScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
         
-        local stopBtn = createListButton(specScr, "✕ STOP SPECTATE", BRICK.Red, BRICK.RedDark, 0)
+        local stopBtn = createListButton(specScr, "X  STOP SPECTATE", BRICK.Red, BRICK.RedDark, 0)
         stopBtn.MouseButton1Click:Connect(function() 
             if getHum() then camera.CameraSubject = getHum() end
         end)
@@ -871,7 +881,7 @@ bbTopBar.Size = UDim2.new(1, -16, 0, 40)
 brickify(bbTopBar, BRICK.Orange, BRICK.OrangeDark, 8, 3)
 
 local bbTitle = Instance.new("TextLabel", bbTopBar)
-bbTitle.Text = "♪ RELICSxyz"
+bbTitle.Text = "RELICSxyz"
 bbTitle.BackgroundTransparency = 1
 bbTitle.Position = UDim2.new(0, 12, 0, 0)
 bbTitle.Size = UDim2.new(1, -60, 1, 0)
@@ -879,10 +889,10 @@ bbTitle.TextXAlignment = Enum.TextXAlignment.Left
 brickText(bbTitle, isMobile and 18 or 22)
 
 local bbMinBtn = Instance.new("TextButton", bbTopBar)
-bbMinBtn.Text = "—"
+bbMinBtn.Text = "-"
 bbMinBtn.Size = UDim2.new(0, 30, 0, 30)
 bbMinBtn.Position = UDim2.new(1, -36, 0.5, -15)
-brickIcon(bbMinBtn, BRICK.BlueLight, BRICK.BlueDark, 18)
+brickIcon(bbMinBtn, BRICK.BlueLight, BRICK.BlueDark, 22)
 
 makeDraggable(boomboxFrame, bbTopBar)
 
@@ -900,7 +910,7 @@ local bbPageFavs = Instance.new("ScrollingFrame", bbPages); bbPageFavs.Size = UD
 
 -- Browse Page : champ de recherche bleu foncé (style "NAME")
 local bbSearchBox = Instance.new("TextBox", bbPageBrowse)
-bbSearchBox.PlaceholderText = "⌕ Paste a Roblox ID..."
+bbSearchBox.PlaceholderText = "Paste a Roblox ID..."
 bbSearchBox.PlaceholderColor3 = BRICK.TextSoft
 bbSearchBox.Text = ""
 bbSearchBox.Size = UDim2.new(1, -24, 0, isMobile and 36 or 42)
@@ -936,6 +946,7 @@ bbBtnHeart.Size = UDim2.new(0, 36, 0, 36)
 bbBtnHeart.Position = UDim2.new(0, 12, 0, 4)
 local bbHeartEdge = brickify(bbBtnHeart, BB_ICON_OFF, BB_ICON_OFF_EDGE, 8, 3)
 brickText(bbBtnHeart, 20)
+glyph(bbBtnHeart)
 bbBtnHeart.AutoButtonColor = false
 
 local bbBtnLoop = Instance.new("TextButton", bbPagePlay)
@@ -944,6 +955,7 @@ bbBtnLoop.Size = UDim2.new(0, 36, 0, 36)
 bbBtnLoop.Position = UDim2.new(0, 56, 0, 4)
 local bbLoopEdge = brickify(bbBtnLoop, BB_ICON_OFF, BB_ICON_OFF_EDGE, 8, 3)
 brickText(bbBtnLoop, 22)
+glyph(bbBtnLoop)
 bbBtnLoop.AutoButtonColor = false
 
 local function bbSetHeart(isFav)
@@ -967,6 +979,7 @@ bbCoverLabel.Size = UDim2.new(1,0,1,0)
 bbCoverLabel.BackgroundTransparency = 1
 bbCoverLabel.Text = "♪"
 brickText(bbCoverLabel, isMobile and 32 or 56)
+glyph(bbCoverLabel)
 
 local bbLblSong = Instance.new("TextLabel", bbPagePlay)
 bbLblSong.Text = "No audio"
@@ -1017,6 +1030,7 @@ bbBtnPlay.Size = UDim2.new(0, bbPlaySize, 0, bbPlaySize)
 bbBtnPlay.Position = UDim2.new(0.5, -bbPlaySize/2, 0, isMobile and 140 or 226)
 brickIcon(bbBtnPlay, BRICK.Green, BRICK.GreenDark, isMobile and 22 or 30)
 bbBtnPlay:FindFirstChild("BrickEdge").Thickness = 4
+glyph(bbBtnPlay)
 
 -- Bottom Navigation
 local bbNav = Instance.new("Frame", boomboxFrame)
@@ -1030,6 +1044,7 @@ local function bbMakeNav(text, iconStr, xPos)
     b.Position = UDim2.new(xPos, 5, 0, 5)
     b.Text = iconStr.."  "..text
     brickIcon(b, BRICK.BlueLight, BRICK.BlueDeep, isMobile and 12 or 14)
+    glyph(b)
     return b
 end
 
@@ -1094,6 +1109,7 @@ local function bbCreateItem(parent, id, name, creator)
     heart.Position = UDim2.new(1, -38, 0.5, -14)
     brickify(heart, isFav and BRICK.Pink or BRICK.BlueDeep, isFav and BRICK.PinkDark or BRICK.BlueDark, 6, 2)
     brickText(heart, 15)
+    glyph(heart)
 
     item.MouseEnter:Connect(function()
         TweenService:Create(item, TweenInfo.new(0.1), {BackgroundColor3 = BRICK.BlueHover}):Play()

@@ -1,10 +1,9 @@
 -- ⚠️ SÉCURITÉ ANTI-BYPASS ⚠️
 local ProtectionConfig = {
-    SecretKey = "0652269804Xd", -- Correspond exactement à la variable du script de clé
+    SecretKey = "0652269804Xd",
     HubName = "Koyle Admin Hub"
 }
 
--- Si exécuté en dehors du système de clé, expulse immédiatement le joueur
 if not _G[ProtectionConfig.SecretKey] then
     local player = game:GetService("Players").LocalPlayer
     if player then
@@ -248,6 +247,21 @@ local function addToggle(txt, cb)
     end)
 end
 
+-- --- FONCTION DE FERMETURE COMPLÈTE & NETTOYAGE ---
+local function closeAdminPanelPermanently()
+    for key in pairs(states) do states[key] = false end
+    if xrayConnection then xrayConnection:Disconnect() end
+    for name, connection in pairs(connections) do
+        if connection then pcall(function() connection:Disconnect() end) end
+    end
+    if flyBG then flyBG:Destroy() end
+    if flyBV then flyBV:Destroy() end
+    pcall(function() sound:Stop(); sound:Destroy() end)
+    screenGui:Destroy()
+end
+
+confirmCloseBtn.MouseButton1Click:Connect(closeAdminPanelPermanently)
+
 -- --- FONCTIONS ADMIN ---
 addToggle("1. 👻 NoClip", function(a)
     states.noclip = a
@@ -299,18 +313,110 @@ addToggle("6. 💡 Full Bright", function(a)
     Lighting.Ambient = a and Color3.new(1,1,1) or Color3.fromRGB(127,127,127)
 end)
 
--- Option Fermeture & Reset Clé
-addToggle("7. 🗑️ Reset Saved Key & Exit", function(a)
-    if a then
-        if delfile and isfile and isfile("Mykey.txt") then pcall(function() delfile("Mykey.txt") end) end
-        screenGui:Destroy()
-        -- Relance automatique du système de clé
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Koyle%20Key%20system.lua"))()
+-- --- SYSTÈME TP JOUEUR ---
+local tpWin = Instance.new("Frame", screenGui)
+tpWin.Size = UDim2.new(0, 200, 0, 250); tpWin.Position = UDim2.new(0.5, sizes.w/2 + 20, 0.5, -125)
+tpWin.BackgroundColor3 = GUI_THEME.Background; tpWin.Visible = false
+Instance.new("UICorner", tpWin).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", tpWin).Color = GUI_THEME.Accent
+
+local tpHeader = Instance.new("Frame", tpWin)
+tpHeader.Size = UDim2.new(1, 0, 0, 30); tpHeader.BackgroundColor3 = GUI_THEME.Header
+Instance.new("UICorner", tpHeader).CornerRadius = UDim.new(0, 10)
+local tpTitle = Instance.new("TextLabel", tpHeader)
+tpTitle.Size = UDim2.new(1, 0, 1, 0); tpTitle.BackgroundTransparency = 1; tpTitle.Text = "TELEPORTATION"
+tpTitle.TextColor3 = GUI_THEME.Accent; tpTitle.Font = Enum.Font.GothamBold
+
+local tpScr = Instance.new("ScrollingFrame", tpWin)
+tpScr.Size = UDim2.new(1, -10, 1, -40); tpScr.Position = UDim2.new(0, 5, 0, 35)
+tpScr.BackgroundTransparency = 1; tpScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Instance.new("UIListLayout", tpScr).Padding = UDim.new(0, 5)
+makeDraggable(tpWin, tpHeader)
+
+addToggle("7. 👥 TP TO PLAYER ▼", function(active)
+    tpWin.Visible = active
+    if tpWin.Visible then
+        for _, v in pairs(tpScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local pb = Instance.new("TextButton", tpScr)
+                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
+                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
+                pb.Font = Enum.Font.Gotham
+                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                pb.MouseButton1Click:Connect(function() 
+                    local myRoot = getRoot()
+                    if myRoot and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
+                        myRoot.CFrame = p.Character.HumanoidRootPart.CFrame 
+                    end 
+                end)
+            end
+        end
     end
 end)
 
-confirmCloseBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
+-- --- SYSTÈME SPECTATE ---
+local specWin = Instance.new("Frame", screenGui)
+specWin.Size = UDim2.new(0, 200, 0, 250); specWin.Position = UDim2.new(0.5, -sizes.w/2 - 220, 0.5, -125)
+specWin.BackgroundColor3 = GUI_THEME.Background; specWin.Visible = false
+Instance.new("UICorner", specWin).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", specWin).Color = GUI_THEME.Accent
+
+local specHeader = Instance.new("Frame", specWin)
+specHeader.Size = UDim2.new(1, 0, 0, 30); specHeader.BackgroundColor3 = GUI_THEME.Header
+Instance.new("UICorner", specHeader).CornerRadius = UDim.new(0, 10)
+local specTitle = Instance.new("TextLabel", specHeader)
+specTitle.Size = UDim2.new(1, 0, 1, 0); specTitle.BackgroundTransparency = 1; specTitle.Text = "SPECTATE"
+specTitle.TextColor3 = GUI_THEME.Accent; specTitle.Font = Enum.Font.GothamBold
+
+local specScr = Instance.new("ScrollingFrame", specWin)
+specScr.Size = UDim2.new(1, -10, 1, -40); specScr.Position = UDim2.new(0, 5, 0, 35)
+specScr.BackgroundTransparency = 1; specScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Instance.new("UIListLayout", specScr).Padding = UDim.new(0, 5)
+makeDraggable(specWin, specHeader)
+
+addToggle("8. 👁️ SPECTATE PLAYER ▼", function(active)
+    specWin.Visible = active
+    if specWin.Visible then
+        for _, v in pairs(specScr:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        local stopBtn = Instance.new("TextButton", specScr)
+        stopBtn.Size = UDim2.new(1, 0, 0, 30); stopBtn.Text = "❌ STOP SPECTATE"
+        stopBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40); stopBtn.TextColor3 = Color3.new(1, 1, 1)
+        stopBtn.Font = Enum.Font.GothamBold
+        Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 5)
+        stopBtn.MouseButton1Click:Connect(function() 
+            local hum = getHum()
+            if hum then camera.CameraSubject = hum end
+        end)
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player then
+                local pb = Instance.new("TextButton", specScr)
+                pb.Size = UDim2.new(1, 0, 0, 30); pb.Text = p.DisplayName
+                pb.BackgroundColor3 = GUI_THEME.ButtonOff; pb.TextColor3 = GUI_THEME.Text
+                pb.Font = Enum.Font.Gotham
+                Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
+                pb.MouseButton1Click:Connect(function() 
+                    if p.Character and p.Character:FindFirstChild("Humanoid") then 
+                        camera.CameraSubject = p.Character.Humanoid
+                    end 
+                end)
+            end
+        end
+    else
+        local hum = getHum()
+        if hum then camera.CameraSubject = hum end
+    end
+end)
+
+-- --- OPTION 9 : RESET SAVED KEY & EXIT ---
+addToggle("9. 🗑️ Reset Saved Key & Exit", function(active)
+    if active then
+        if delfile and isfile and isfile("Mykey.txt") then
+            pcall(function() delfile("Mykey.txt") end)
+        end
+        closeAdminPanelPermanently()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Koyle%20Key%20system.lua"))()
+    end
 end)
 
 game:GetService("StarterGui"):SetCore("SendNotification", {

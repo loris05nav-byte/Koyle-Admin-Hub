@@ -28,7 +28,7 @@ local Config = {
 
     -- [7] Hub Information & UI Text
     HubName         = "Koyle Hub",
-    HubDescription  = "Koyle Hub is an universal admin panel"
+    HubDescription  = "Koyle Hub // Universal Script (EASY key system)"
 }
 
 -------------------------------------------------------------------------------

@@ -1669,22 +1669,24 @@ end
 
 addToggle("18. 🚀 FPS Boost", setFPSBoost)
 
--- --- UNTOUCHABLE ---
--- Le personnage ne bloque plus rien (CanCollide = false) et ne déclenche plus les zones
--- au toucher (CanTouch = false : lave, pièges, kill bricks). Valeurs d'origine restaurées à l'arrêt.
+-- --- UNTOUCHABLE (PLAYERS) ---
+-- Les autres joueurs passent à travers toi et ne peuvent plus te pousser/bloquer :
+-- leurs parties sont mises en CanCollide = false de ton côté. Les murs et le sol restent solides.
 local untouchableOriginals = {}
 local untouchableConnection = nil
 
 local function applyUntouchable()
-    local character = getChar()
-    if not character then return end
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            if untouchableOriginals[part] == nil then
-                untouchableOriginals[part] = { collide = part.CanCollide, touch = part.CanTouch }
+    for _, other in ipairs(Players:GetPlayers()) do
+        local character = other ~= player and other.Character
+        if character then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if untouchableOriginals[part] == nil then
+                        untouchableOriginals[part] = part.CanCollide
+                    end
+                    part.CanCollide = false
+                end
             end
-            part.CanCollide = false
-            part.CanTouch = false
         end
     end
 end
@@ -1697,22 +1699,19 @@ local function setUntouchable(active)
 
     if active then
         applyUntouchable()
-        -- Réappliqué à chaque frame physique : Roblox remet CanCollide sur certaines parties
+        -- Réappliqué à chaque frame physique : Roblox remet CanCollide sur les personnages
         untouchableConnection = RunService.Stepped:Connect(applyUntouchable)
     else
-        for part, original in pairs(untouchableOriginals) do
+        for part, wasColliding in pairs(untouchableOriginals) do
             if part.Parent then
-                pcall(function()
-                    part.CanCollide = original.collide
-                    part.CanTouch = original.touch
-                end)
+                pcall(function() part.CanCollide = wasColliding end)
             end
         end
         untouchableOriginals = {}
     end
 end
 
-addToggle("19. 🫥 Untouchable (No Collide)", setUntouchable)
+addToggle("19. 🫥 Untouchable (Players)", setUntouchable)
 
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false

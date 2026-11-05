@@ -1563,6 +1563,96 @@ end
 
 addToggle("16. 🟠 ESP Objets en mouvement", setMovingESP)
 
+-- --- ANTI-AFK ---
+-- Évite l'expulsion automatique de Roblox après 20 min d'inactivité.
+local antiAFKConnection = nil
+local function setAntiAFK(active)
+    if antiAFKConnection then
+        antiAFKConnection:Disconnect()
+        antiAFKConnection = nil
+    end
+    if not active then return end
+
+    local VirtualUser = game:GetService("VirtualUser")
+    antiAFKConnection = player.Idled:Connect(function()
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0, 0))
+        end)
+    end)
+end
+
+addToggle("17. 💤 Anti-AFK", setAntiAFK)
+
+-- --- FPS BOOST ---
+-- Désactive localement ombres, particules et effets visuels lourds ; tout est restauré à la désactivation.
+local fpsBoostOriginals = {}
+local fpsBoostLighting = nil
+local fpsBoostAddedConnection = nil
+local FPS_EFFECT_CLASSES = {
+    ParticleEmitter = true, Trail = true, Beam = true, Smoke = true,
+    Fire = true, Sparkles = true, Explosion = false,
+}
+local FPS_POST_EFFECT_CLASSES = {
+    BloomEffect = true, BlurEffect = true, SunRaysEffect = true,
+    DepthOfFieldEffect = true, ColorCorrectionEffect = false,
+}
+
+local function fpsBoostInstance(instance)
+    local className = instance.ClassName
+    if FPS_EFFECT_CLASSES[className] or FPS_POST_EFFECT_CLASSES[className] then
+        if fpsBoostOriginals[instance] == nil then
+            fpsBoostOriginals[instance] = instance.Enabled
+        end
+        instance.Enabled = false
+    end
+end
+
+local function setFPSBoost(active)
+    if fpsBoostAddedConnection then
+        fpsBoostAddedConnection:Disconnect()
+        fpsBoostAddedConnection = nil
+    end
+
+    if active then
+        fpsBoostLighting = fpsBoostLighting or {
+            GlobalShadows = Lighting.GlobalShadows,
+            FogEnd = Lighting.FogEnd,
+        }
+        pcall(function()
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 1e6
+        end)
+        for _, instance in ipairs(Workspace:GetDescendants()) do
+            pcall(fpsBoostInstance, instance)
+        end
+        for _, instance in ipairs(Lighting:GetChildren()) do
+            pcall(fpsBoostInstance, instance)
+        end
+        fpsBoostAddedConnection = Workspace.DescendantAdded:Connect(function(instance)
+            pcall(fpsBoostInstance, instance)
+        end)
+        pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+    else
+        for instance, wasEnabled in pairs(fpsBoostOriginals) do
+            if instance.Parent then
+                pcall(function() instance.Enabled = wasEnabled end)
+            end
+        end
+        fpsBoostOriginals = {}
+        if fpsBoostLighting then
+            pcall(function()
+                Lighting.GlobalShadows = fpsBoostLighting.GlobalShadows
+                Lighting.FogEnd = fpsBoostLighting.FogEnd
+            end)
+            fpsBoostLighting = nil
+            pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
+        end
+    end
+end
+
+addToggle("18. 🚀 FPS Boost", setFPSBoost)
+
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false
 local function closeAdminPanelPermanently()
@@ -1574,6 +1664,8 @@ local function closeAdminPanelPermanently()
     stopXRay()
     setEntitiesESP(false)
     stopMovingESP()
+    setAntiAFK(false)
+    setFPSBoost(false)
     removePlayerESP()
 
     for name, connection in pairs(connections) do
@@ -1654,7 +1746,7 @@ local function resetKeyPermanently()
     end)
 end
 
-addToggle("17. 🔑 Reset Key (Test)", function()
+addToggle("19. 🔑 Reset Key (Test)", function()
     resetConfirm.Visible = true
 end)
 cancelResetBtn.MouseButton1Click:Connect(function()

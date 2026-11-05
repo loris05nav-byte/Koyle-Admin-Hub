@@ -1,13 +1,10 @@
 -- ⚠️ IMPORTANT: Anti-Bypass Protection ⚠️
 
 local ProtectionConfig = {
-    -- Clé secrète strictement identique à celle du système de clé ("0652269804Xd")
     SecretKey = "0652269804Xd",
-    
     HubName = "Koyle Admin Hub"
 }
 
--- Anti-Bypass Logic: Vérifie si le système de clé a validé la variable globale
 if not _G[ProtectionConfig.SecretKey] then
     local player = game:GetService("Players").LocalPlayer
     if player then
@@ -17,7 +14,7 @@ if not _G[ProtectionConfig.SecretKey] then
 end
 
 -------------------------------------------------------------------------------
--- 👇 TON CODE DE PANNEAU ADMIN (REPRIS À 100 % DE TON FICHIER ORIGINAL) 👇
+-- 👇 YOUR MAIN SCRIPT CODE STARTS HERE 👇
 -------------------------------------------------------------------------------
 
 print(ProtectionConfig.HubName .. " Loaded Successfully!")
@@ -46,14 +43,14 @@ local connections = {}
 local xrayOriginals = {}
 local xrayConnection = nil
 local xrayAccumulator = 0
-local XRAY_RADIUS = 220
-local XRAY_MAX_PARTS = 450
+local XRAY_RADIUS = 220       -- Ne traite que la zone autour du joueur
+local XRAY_MAX_PARTS = 450    -- Limite stricte pour éviter les cartes surchargées
 local XRAY_UPDATE_INTERVAL = 0.45
 local flyBV, flyBG = nil, nil
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- --- THEME AND SIZES ---
+-- --- THEME ET TAILLES (RESPONSIVE) ---
 local GUI_THEME = {
     Background = Color3.fromRGB(15, 15, 22),
     Header = Color3.fromRGB(25, 25, 35),
@@ -95,7 +92,7 @@ local function loadFavs()
 end
 loadFavs()
 
--- --- DRAGGING FUNCTIONS ---
+-- --- FONCTIONS DE DRAG (GLISSER-DÉPOSER) ---
 local activeDrag = nil
 local DRAG_THRESHOLD = 4
 
@@ -165,7 +162,7 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "UltimateAdmin_v80"
 screenGui.ResetOnSpawn = false
 
--- Floating Bubble (Minimized)
+-- Bulle Flottante (Minimized)
 local bubble = Instance.new("TextButton", screenGui)
 bubble.Name = "Bubble"
 bubble.Size = UDim2.new(0, 50, 0, 50)
@@ -236,7 +233,7 @@ title.TextColor3 = GUI_THEME.Text; title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold; title.TextSize = sizes.txt + 2
 title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Minimize Button "-"
+-- Bouton de réduction "-"
 local minBtn = Instance.new("TextButton", header)
 minBtn.Size = UDim2.new(0, 40, 1, 0)
 minBtn.Position = UDim2.new(1, -80, 0, 0)
@@ -246,7 +243,7 @@ minBtn.TextColor3 = GUI_THEME.Text
 minBtn.Font = Enum.Font.GothamBold
 minBtn.TextSize = sizes.txt + 12
 
--- Close Button (with confirmation)
+-- Bouton de fermeture définitive (avec confirmation)
 local closeBtn = Instance.new("TextButton", header)
 closeBtn.Name = "CloseButton"
 closeBtn.Size = UDim2.new(0, 40, 1, 0)
@@ -260,7 +257,7 @@ closeBtn.AutoButtonColor = false
 closeBtn.MouseEnter:Connect(function() closeBtn.TextColor3 = Color3.fromRGB(255, 145, 150) end)
 closeBtn.MouseLeave:Connect(function() closeBtn.TextColor3 = Color3.fromRGB(255, 95, 105) end)
 
--- Confirmation Modal
+-- Fenêtre de confirmation, cachée tant que l'utilisateur ne clique pas sur ×.
 local closeConfirm = Instance.new("Frame", screenGui)
 closeConfirm.Name = "CloseConfirmation"
 closeConfirm.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -337,7 +334,7 @@ scroll.ScrollBarImageColor3 = GUI_THEME.Accent
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 8); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- --- TOGGLE LOGIC (BUBBLE / MAIN) ---
+-- --- LOGIQUE DE TOGGLE (BULLE / MAIN) ---
 local isOpen = true
 local isAnimating = false
 
@@ -384,9 +381,9 @@ local function getChar() return player.Character end
 local function getHum() return getChar() and getChar():FindFirstChild("Humanoid") end
 local function getRoot() return getChar() and getChar():FindFirstChild("HumanoidRootPart") end
 
--- --- CORE FUNCTIONS ---
+-- --- FONCTIONS SPÉCIFIQUES ---
 
--- FLY MODE
+-- FLY FIXE
 local function handleFly()
     if not states.fly or not getRoot() then return end
     local speed = 50; local dir = Vector3.new(0,0,0); local cf = camera.CFrame
@@ -400,7 +397,7 @@ local function handleFly()
     flyBG.cframe = cf; flyBV.velocity = dir * speed
 end
 
--- NOCLIP
+-- NOCLIP FIXE
 local function toggleNoClip(active)
     states.noclip = active
     if active then
@@ -423,17 +420,20 @@ local function handleAimbot()
     local isAiming = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) or (isMobile and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1))
     if isAiming then
         local target = nil; local dist = math.huge
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-                local d = (getRoot().Position - p.Character.Head.Position).Magnitude
-                if d < dist and d < 500 then dist = d; target = p.Character.Head end
+        local myRoot = getRoot()
+        if myRoot then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    local d = (myRoot.Position - p.Character.Head.Position).Magnitude
+                    if d < dist and d < 500 then dist = d; target = p.Character.Head end
+                end
             end
         end
         if target then camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position) end
     end
 end
 
--- --- BUTTON CREATOR ---
+-- --- CRÉATION DES BOUTONS ---
 local function addToggle(txt, cb)
     local btnFrame = Instance.new("Frame", scroll)
     btnFrame.Size = UDim2.new(1, -10, 0, sizes.btn)
@@ -498,7 +498,7 @@ local function addToggle(txt, cb)
     end)
 end
 
--- --- FEATURES LIST ---
+-- --- LISTE DES CAPACITÉS ---
 
 addToggle("1. 👻 NoClip (Wall)", toggleNoClip)
 
@@ -566,7 +566,7 @@ addToggle("8. 🦘 Infinite Jump", function(a)
     connections["Jump"] = UserInputService.JumpRequest:Connect(function() if states.infjump and getHum() then getHum():ChangeState(3) end end)
 end)
 
--- Optimized X-Ray
+-- X-Ray optimisé
 local function isCharacterPart(part)
     local model = part:FindFirstAncestorOfClass("Model")
     return model ~= nil and model:FindFirstChildOfClass("Humanoid") ~= nil
@@ -661,7 +661,7 @@ addToggle("11.🔍 Infinite Zoom", function(a)
     player.CameraMinZoomDistance = a and 0 or 0.5
 end)
 
--- --- PLAYER TELEPORT SYSTEM ---
+-- --- SYSTÈME TP JOUEUR (FENÊTRE FIXE) ---
 local tpWin = Instance.new("Frame", screenGui)
 tpWin.Size = UDim2.new(0, 200, 0, 250)
 tpWin.Position = UDim2.new(0.5, sizes.w/2 + 20, 0.5, -125)
@@ -704,8 +704,9 @@ addToggle("12. 👥 TP TO PLAYER ▼", function(active)
                 pb.Font = Enum.Font.Gotham
                 Instance.new("UICorner", pb).CornerRadius = UDim.new(0, 5)
                 pb.MouseButton1Click:Connect(function() 
-                    if getRoot() and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
-                        getRoot().CFrame = p.Character.HumanoidRootPart.CFrame 
+                    local myRoot = getRoot()
+                    if myRoot and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
+                        myRoot.CFrame = p.Character.HumanoidRootPart.CFrame 
                     end 
                 end)
             end
@@ -713,7 +714,7 @@ addToggle("12. 👥 TP TO PLAYER ▼", function(active)
     end
 end)
 
--- --- SPECTATE SYSTEM ---
+-- --- SYSTÈME SPECTATE JOUEUR (NOUVELLE FENÊTRE) ---
 local specWin = Instance.new("Frame", screenGui)
 specWin.Size = UDim2.new(0, 200, 0, 250)
 specWin.Position = UDim2.new(0.5, -sizes.w/2 - 220, 0.5, -125)
@@ -755,7 +756,8 @@ addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
         stopBtn.Font = Enum.Font.GothamBold
         Instance.new("UICorner", stopBtn).CornerRadius = UDim.new(0, 5)
         stopBtn.MouseButton1Click:Connect(function() 
-            if getHum() then camera.CameraSubject = getHum() end
+            local hum = getHum()
+            if hum then camera.CameraSubject = hum end
         end)
 
         for _, p in pairs(Players:GetPlayers()) do
@@ -773,11 +775,12 @@ addToggle("13. 👁️ SPECTATE PLAYER ▼", function(active)
             end
         end
     else
-        if getHum() then camera.CameraSubject = getHum() end
+        local hum = getHum()
+        if hum then camera.CameraSubject = hum end
     end
 end)
 
--- --- BOOMBOX RELICSxyz v4.1 SYSTEM ---
+-- --- SYSTÈME BOOMBOX RELICSxyz v4.1 (NOUVELLE FENÊTRE EMBARQUÉE) ---
 local boomboxFrame = Instance.new("Frame", screenGui)
 boomboxFrame.Name = "BoomboxFrame"
 boomboxFrame.BackgroundColor3 = Color3.fromRGB(16, 17, 22)
@@ -1176,7 +1179,7 @@ bbCreateItem(bbScrollList, 8422288236, "have", "4jayxx")
 
 bbSwitchPage(1)
 
--- --- CONTROL PANEL BOOMBOX TOGGLE ---
+-- --- ATTACHEMENT DU BOUTON BOOMBOX DANS LE PANEL DE CONTROLE ---
 addToggle("14. 🎵 BOOMBOX RELICSxyz ▼", function(active)
     boomboxFrame.Visible = active
     if active then
@@ -1185,7 +1188,7 @@ addToggle("14. 🎵 BOOMBOX RELICSxyz ▼", function(active)
 end)
 
 
--- --- ENTITY ESP ---
+-- --- ESP ENTITÉS (AJOUT INDÉPENDANT) ---
 local entityESPObjects = {}
 local entityESPScanConnection = nil
 local entityESPAddedConnection = nil
@@ -1341,13 +1344,12 @@ end
 
 addToggle("15. 🔴 Entity ESP", setEntitiesESP)
 
--- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
+-- Arrêt complet des effets et nettoyage du hub
 local scriptClosed = false
 local function closeAdminPanelPermanently()
     if scriptClosed then return end
     scriptClosed = true
 
-    -- Instantly stop states & loops
     for key in pairs(states) do states[key] = false end
     stopXRay()
     setEntitiesESP(false)
@@ -1359,11 +1361,9 @@ local function closeAdminPanelPermanently()
     end
     if xrayConnection then pcall(function() xrayConnection:Disconnect() end); xrayConnection = nil end
 
-    -- Cleanup fly physics
     if flyBG then pcall(function() flyBG:Destroy() end); flyBG = nil end
     if flyBV then pcall(function() flyBV:Destroy() end); flyBV = nil end
 
-    -- Restore local player defaults
     local character = player.Character
     if character then
         for _, part in ipairs(character:GetDescendants()) do
@@ -1384,10 +1384,180 @@ local function closeAdminPanelPermanently()
 
     pcall(function() sound:Stop(); sound:Destroy() end)
     activeDrag = nil
-    screenGui:Destroy()
+    if screenGui then screenGui:Destroy() end
+    if boomboxFrame then boomboxFrame:Destroy() end
+    if tpWin then tpWin:Destroy() end
+    if specWin then specWin:Destroy() end
 end
 
 confirmCloseBtn.MouseButton1Click:Connect(closeAdminPanelPermanently)
+
+-- --- NOUVELLE OPTION 16 : RESET KEY ---
+addToggle("16. 🗑️ Reset Saved Key", function(active)
+    if active then
+        -- 1. Supprimer définitivement le fichier de clé s'il existe
+        if delfile and isfile and isfile("Mykey.txt") then
+            pcall(function() delfile("Mykey.txt") end)
+        end
+
+        -- 2. Fermer le script et nettoyer tous les effets en cours
+        closeAdminPanelPermanently()
+
+        -- 3. Recréer dynamiquement l'interface du système de clé d'origine pour redemander la clé
+        task.spawn(function()
+            local targetParent = pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
+            if targetParent:FindFirstChild("OYB_KeySystem") then targetParent.OYB_KeySystem:Destroy() end
+
+            local ScreenGui = Instance.new("ScreenGui", targetParent)
+            ScreenGui.Name = "OYB_KeySystem"
+            ScreenGui.ResetOnSpawn = false
+
+            local MainFrame = Instance.new("Frame", ScreenGui)
+            MainFrame.Size = UDim2.new(0, 340, 0, 420)
+            MainFrame.Position = UDim2.new(0.5, -170, 0.5, -210)
+            MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+            MainFrame.Active = true;
+            MainFrame.Draggable = true
+            Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
+            
+            local mainStroke = Instance.new("UIStroke", MainFrame)
+            mainStroke.Thickness = 2;
+            mainStroke.Color = Color3.fromRGB(40, 40, 40)
+
+            local CloseBtn = Instance.new("TextButton", MainFrame)
+            CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+            CloseBtn.Position = UDim2.new(1, -35, 0, 10)
+            CloseBtn.BackgroundTransparency = 1
+            CloseBtn.Text = "X"
+            CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50)
+            CloseBtn.Font = Enum.Font.GothamBold
+            CloseBtn.TextSize = 18
+            CloseBtn.ZIndex = 10
+            CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+            local Title = Instance.new("TextLabel", MainFrame)
+            Title.Size = UDim2.new(1, 0, 0, 50)
+            Title.Text = "Koyle Hub"
+            Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+            Title.Font = Enum.Font.GothamBold;
+            Title.TextSize = 16
+            Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 15)
+
+            local PromoText = Instance.new("TextLabel", MainFrame)
+            PromoText.Size = UDim2.new(0.9, 0, 0, 50)
+            PromoText.Position = UDim2.new(0.05, 0, 0, 50)
+            PromoText.BackgroundTransparency = 1
+            PromoText.Text = "Koyle Hub is an universal admin panel"
+            PromoText.TextColor3 = Color3.fromRGB(0, 170, 255)
+            PromoText.Font = Enum.Font.GothamBold;
+            PromoText.TextSize = 14
+            PromoText.TextWrapped = true
+
+            local KeyInput = Instance.new("TextBox", MainFrame)
+            KeyInput.Size = UDim2.new(0.85, 0, 0, 40)
+            KeyInput.Position = UDim2.new(0.075, 0, 0, 105 + 15)
+            KeyInput.PlaceholderText = "Enter Key..."
+            KeyInput.Text = ""
+            KeyInput.Font = Enum.Font.GothamSemibold;
+            KeyInput.TextSize = 14
+            KeyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25);
+            KeyInput.TextColor3 = Color3.new(1, 1, 1)
+            Instance.new("UICorner", KeyInput)
+
+            local VerifyBtn = Instance.new("TextButton", MainFrame)
+            VerifyBtn.Size = UDim2.new(0.4, 0, 0, 40)
+            VerifyBtn.Position = UDim2.new(0.075, 0, 0, 105 + 65)
+            VerifyBtn.Text = "VERIFY"
+            VerifyBtn.Font = "GothamBold";
+            VerifyBtn.TextSize = 14
+            VerifyBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255);
+            VerifyBtn.TextColor3 = Color3.new(1, 1, 1)
+            Instance.new("UICorner", VerifyBtn)
+
+            local GetKeyBtn = Instance.new("TextButton", MainFrame)
+            GetKeyBtn.Size = UDim2.new(0.4, 0, 0, 40)
+            GetKeyBtn.Position = UDim2.new(0.525, 0, 0, 105 + 65)
+            GetKeyBtn.Text = "GET KEY"
+            GetKeyBtn.Font = "GothamBold";
+            GetKeyBtn.TextSize = 14
+            GetKeyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35);
+            GetKeyBtn.TextColor3 = Color3.new(1, 1, 1)
+            Instance.new("UICorner", GetKeyBtn)
+
+            local Status = Instance.new("TextLabel", MainFrame)
+            Status.Name = "StatusLabel"
+            Status.Size = UDim2.new(1, 0, 0, 30)
+            Status.Position = UDim2.new(0, 0, 0, 105 + 115)
+            Status.BackgroundTransparency = 1
+            Status.Text = "Key reset successfully."
+            Status.TextColor3 = Color3.fromRGB(0, 255, 100)
+            Status.Font = Enum.Font.Gotham;
+            Status.TextSize = 12
+            
+            MainFrame.Size = UDim2.new(0, 340, 0, 105 + 160)
+
+            VerifyBtn.MouseButton1Click:Connect(function()
+                local key = KeyInput.Text
+                if key == "" then Status.Text = "Enter a key!"; return end
+                Status.Text = "Verifying..."
+                
+                -- Requête de validation standard PlatoBoost intégrée au bouton
+                local req = request or http_request or syn_request or (http and http.request)
+                if req then
+                    local successResp, response = pcall(function()
+                        return req({
+                            Url = "https://api.platoboost.com/public/redeem/36631",
+                            Method = "POST",
+                            Body = HttpService:JSONEncode({identifier = string.lower(game:GetService("RbxAnalyticsService"):GetClientId()), key = key}),
+                            Headers = {["Content-Type"] = "application/json"}
+                        })
+                    end)
+                    if successResp and response and response.StatusCode == 200 then
+                        local decoded = HttpService:JSONDecode(response.Body)
+                        if decoded.success and decoded.data.valid then
+                            if writefile then writefile("Mykey.txt", key) end
+                            Status.Text = "Success! Loading..."
+                            Status.TextColor3 = Color3.fromRGB(0, 255, 100)
+                            task.wait(0.5)
+                            ScreenGui:Destroy()
+                            loadstring(game:HttpGet("https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Lolo%20Hub%20v2.lua"))()
+                        else
+                            Status.Text = decoded.message or "Invalid Key"
+                            Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+                        end
+                    else
+                        Status.Text = "Connection Error"
+                        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    end
+                end
+            end)
+
+            GetKeyBtn.MouseButton1Click:Connect(function()
+                Status.Text = "Getting Link..."
+                local req = request or http_request or syn_request or (http and http.request)
+                if req then
+                    local successResp, response = pcall(function()
+                        return req({
+                            Url = "https://api.platoboost.com/public/start",
+                            Method = "POST",
+                            Body = HttpService:JSONEncode({service = 36631, identifier = string.lower(game:GetService("RbxAnalyticsService"):GetClientId())}),
+                            Headers = {["Content-Type"] = "application/json"}
+                        })
+                    end)
+                    if successResp and response and response.StatusCode == 200 then
+                        local decoded = HttpService:JSONDecode(response.Body)
+                        if decoded.success then
+                            if setclipboard then setclipboard(decoded.data.url) end
+                            Status.Text = "Link Copied!"
+                            Status.TextColor3 = Color3.fromRGB(0, 170, 255)
+                        end
+                    end
+                end
+            end)
+        end)
+    end
+end)
 
 -- --- LAUNCH NOTIFICATION ---
 game:GetService("StarterGui"):SetCore("SendNotification", {

@@ -164,9 +164,18 @@ local function StartMainScript()
         return false, "Script error: " .. tostring(compileErr)
     end
 
-    local okRun, runErr = pcall(mainFn)
+    local okRun, runErr = xpcall(mainFn, function(e)
+        return tostring(e) .. "\n" .. debug.traceback()
+    end)
     if not okRun then
-        return false, "Runtime error: " .. tostring(runErr)
+        warn("[Koyle Key System] Main script error:\n" .. tostring(runErr))
+        -- Si le hub s'est quand même affiché, l'erreur n'est pas bloquante
+        local pGui2 = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+        if pGui2 and pGui2:FindFirstChild(Config.MainGuiName) then
+            return true
+        end
+        local firstLine = tostring(runErr):match("^[^\n]+") or tostring(runErr)
+        return false, "Runtime error: " .. firstLine
     end
     return true
 end
@@ -182,6 +191,12 @@ local function LaunchFromKeyPage(ScreenGui, Status)
         Status.Text = tostring(err)
         Status.TextColor3 = Color3.fromRGB(255, 120, 120)
         Status.TextWrapped = true
+        Status.TextScaled = true
+        -- Copie automatiquement l'erreur pour pouvoir la partager
+        if setclipboard or toclipboard then
+            pcall(setclipboard or toclipboard, tostring(err))
+            Status.Text = tostring(err) .. " (copied)"
+        end
     end
 end
 

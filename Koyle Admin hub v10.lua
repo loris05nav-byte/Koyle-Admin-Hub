@@ -1755,9 +1755,18 @@ end)
 confirmResetBtn.MouseButton1Click:Connect(resetKeyPermanently)
 
 -- --- LAUNCH NOTIFICATION ---
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "ADMIN v8.0", 
-    Text = "Panel & RELICS Boombox loaded! Press [G] to minimize menu.", 
-    Duration = 5,
-    Icon = "rbxassetid://1087851214"
-})
+task.spawn(function()
+    -- SetCore peut échouer si les CoreScripts ne sont pas encore prêts : on réessaie sans bloquer le script
+    for _ = 1, 10 do
+        local ok = pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "KOYLE ADMIN HUB",
+                Text = "Panel & RELICS Boombox loaded! Press [G] to minimize menu.",
+                Duration = 5,
+                Icon = "rbxassetid://1087851214"
+            })
+        end)
+        if ok then break end
+        task.wait(0.5)
+    end
+end)

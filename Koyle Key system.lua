@@ -148,9 +148,41 @@ local function StartMainScript()
         task.wait(0.1)
     end
     
-    _G[Config.Secret] = true 
-    
-    loadstring(game:HttpGet(Config.MainScriptURL))()
+    _G[Config.Secret] = true
+
+    -- Téléchargement du script principal (avec vérification)
+    local okGet, source = pcall(function() return game:HttpGet(Config.MainScriptURL) end)
+    if not okGet or type(source) ~= "string" or source == "" then
+        return false, "Download failed: " .. tostring(source)
+    end
+    if source:sub(1, 3) == "404" then
+        return false, "Main script not found (404). Check MainScriptURL."
+    end
+
+    local mainFn, compileErr = loadstring(source)
+    if not mainFn then
+        return false, "Script error: " .. tostring(compileErr)
+    end
+
+    local okRun, runErr = pcall(mainFn)
+    if not okRun then
+        return false, "Runtime error: " .. tostring(runErr)
+    end
+    return true
+end
+
+-- Lance le script et affiche l'erreur dans la page de clé si ça échoue
+local function LaunchFromKeyPage(ScreenGui, Status)
+    Status.Text = "Loading script..."
+    local ok, err = StartMainScript()
+    if ok then
+        ScreenGui:Destroy()
+    else
+        warn("[Koyle Key System] " .. tostring(err))
+        Status.Text = tostring(err)
+        Status.TextColor3 = Color3.fromRGB(255, 50, 50)
+        Status.TextWrapped = true
+    end
 end
 
 local function CreateGUI()
@@ -366,8 +398,7 @@ local function CreateGUI()
             Status.Text = "Success! Loading..."
             Status.TextColor3 = Color3.fromRGB(0, 255, 100)
             task.wait(0.5)
-            ScreenGui:Destroy()
-            StartMainScript()
+            LaunchFromKeyPage(ScreenGui, Status)
         else
             Status.Text = msg
             Status.TextColor3 = Color3.fromRGB(255, 50, 50)
@@ -397,8 +428,7 @@ local function CreateGUI()
                     Status.Text = "Auto-login success!"
                     Status.TextColor3 = Color3.fromRGB(0, 255, 100)
                     task.wait(0.5)
-                    ScreenGui:Destroy()
-                    StartMainScript()
+                    LaunchFromKeyPage(ScreenGui, Status)
                 else
                     Status.Text = "Saved key expired or invalid."
                     Status.TextColor3 = Color3.fromRGB(255, 150, 0)

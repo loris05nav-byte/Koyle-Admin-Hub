@@ -7,7 +7,7 @@ local Config = {
     Secret          = "0652269804Xd", -- Identique au script principal !
     
     -- [3] Scripts & Links
-    MainScriptURL   = "https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Lolo%20Hub%20v2.lua", -- Ton URL GitHub Raw
+    MainScriptURL   = "https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Koyle%20Admin%20hub%20v10.lua", -- Ton URL GitHub Raw
     
     -- [4] Social Media Settings
     ShowDiscord     = false,
@@ -407,6 +407,9 @@ local function CreateGUI()
         end
     end
 end
+
+-- Permet au hub (option "Reset Key") de réafficher la page de clé
+_G.KoyleKeySystem_Show = CreateGUI
 
 local player = game:GetService("Players").LocalPlayer
 local pGui = player:WaitForChild("PlayerGui")

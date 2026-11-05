@@ -3,8 +3,12 @@
 local ProtectionConfig = {
     -- Clé secrète strictement identique à celle du système de clé ("0652269804Xd")
     SecretKey = "0652269804Xd",
-    
-    HubName = "Koyle Admin Hub"
+
+    HubName = "Koyle Admin Hub",
+
+    -- Utilisés par l'option "Reset Key" (doivent correspondre au système de clé)
+    KeyFileName = "Mykey.txt",
+    KeySystemURL = "https://raw.githubusercontent.com/loris05nav-byte/Koyle-Admin-Hub/refs/heads/main/Koyle%20Key%20system.lua"
 }
 
 -- Anti-Bypass Logic: Vérifie si le système de clé a validé la variable globale
@@ -1388,6 +1392,108 @@ local function closeAdminPanelPermanently()
 end
 
 confirmCloseBtn.MouseButton1Click:Connect(closeAdminPanelPermanently)
+
+-- --- RESET KEY (TEST) ---
+-- Supprime définitivement la clé enregistrée, ferme le script, annule ses effets
+-- et réaffiche la page de demande de clé.
+local resetConfirm = Instance.new("Frame", screenGui)
+resetConfirm.Name = "ResetKeyConfirmation"
+resetConfirm.AnchorPoint = Vector2.new(0.5, 0.5)
+resetConfirm.Position = UDim2.new(0.5, 0, 0.5, 0)
+resetConfirm.Size = UDim2.new(0, isMobile and 280 or 360, 0, 175)
+resetConfirm.BackgroundColor3 = Color3.fromRGB(20, 22, 31)
+resetConfirm.BorderSizePixel = 0
+resetConfirm.Visible = false
+resetConfirm.ZIndex = 50
+Instance.new("UICorner", resetConfirm).CornerRadius = UDim.new(0, 12)
+local resetStroke = Instance.new("UIStroke", resetConfirm)
+resetStroke.Color = Color3.fromRGB(255, 170, 60)
+resetStroke.Thickness = 1.5
+
+local resetTitle = Instance.new("TextLabel", resetConfirm)
+resetTitle.BackgroundTransparency = 1
+resetTitle.Position = UDim2.new(0, 14, 0, 12)
+resetTitle.Size = UDim2.new(1, -28, 0, 30)
+resetTitle.Font = Enum.Font.GothamBold
+resetTitle.Text = "Reset Key?"
+resetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetTitle.TextSize = isMobile and 16 or 18
+resetTitle.ZIndex = 51
+
+local resetText = Instance.new("TextLabel", resetConfirm)
+resetText.BackgroundTransparency = 1
+resetText.Position = UDim2.new(0, 16, 0, 45)
+resetText.Size = UDim2.new(1, -32, 0, 48)
+resetText.Font = Enum.Font.Gotham
+resetText.Text = "Your saved key will be permanently deleted. The script will close and the key page will open again."
+resetText.TextWrapped = true
+resetText.TextColor3 = Color3.fromRGB(205, 210, 220)
+resetText.TextSize = isMobile and 11 or 13
+resetText.ZIndex = 51
+
+local cancelResetBtn = Instance.new("TextButton", resetConfirm)
+cancelResetBtn.Name = "CancelReset"
+cancelResetBtn.Size = UDim2.new(0.43, 0, 0, 36)
+cancelResetBtn.Position = UDim2.new(0.05, 0, 1, -48)
+cancelResetBtn.BackgroundColor3 = Color3.fromRGB(55, 59, 72)
+cancelResetBtn.Text = "Cancel"
+cancelResetBtn.TextColor3 = Color3.new(1, 1, 1)
+cancelResetBtn.Font = Enum.Font.GothamSemibold
+cancelResetBtn.TextSize = isMobile and 12 or 14
+cancelResetBtn.ZIndex = 51
+Instance.new("UICorner", cancelResetBtn).CornerRadius = UDim.new(0, 7)
+
+local confirmResetBtn = Instance.new("TextButton", resetConfirm)
+confirmResetBtn.Name = "ConfirmReset"
+confirmResetBtn.Size = UDim2.new(0.43, 0, 0, 36)
+confirmResetBtn.Position = UDim2.new(0.52, 0, 1, -48)
+confirmResetBtn.BackgroundColor3 = Color3.fromRGB(190, 110, 30)
+confirmResetBtn.Text = "Reset Key"
+confirmResetBtn.TextColor3 = Color3.new(1, 1, 1)
+confirmResetBtn.Font = Enum.Font.GothamBold
+confirmResetBtn.TextSize = isMobile and 12 or 14
+confirmResetBtn.ZIndex = 51
+Instance.new("UICorner", confirmResetBtn).CornerRadius = UDim.new(0, 7)
+
+local function resetKeyPermanently()
+    -- 1. Ferme le script et annule tous ses effets
+    closeAdminPanelPermanently()
+
+    -- 2. Révoque l'autorisation de la session
+    _G[ProtectionConfig.SecretKey] = nil
+
+    -- 3. Supprime définitivement la clé enregistrée
+    local keyFile = ProtectionConfig.KeyFileName
+    local deleted = false
+    if delfile and isfile then
+        deleted = pcall(function()
+            if isfile(keyFile) then delfile(keyFile) end
+        end)
+    end
+    if not deleted and writefile then
+        pcall(writefile, keyFile, "")
+    end
+
+    -- 4. Réaffiche la page de demande de clé
+    task.defer(function()
+        local showKeyPage = _G.KoyleKeySystem_Show
+        if type(showKeyPage) == "function" then
+            pcall(showKeyPage)
+        else
+            pcall(function()
+                loadstring(game:HttpGet(ProtectionConfig.KeySystemURL))()
+            end)
+        end
+    end)
+end
+
+addToggle("16. 🔑 Reset Key (Test)", function()
+    resetConfirm.Visible = true
+end)
+cancelResetBtn.MouseButton1Click:Connect(function()
+    resetConfirm.Visible = false
+end)
+confirmResetBtn.MouseButton1Click:Connect(resetKeyPermanently)
 
 -- --- LAUNCH NOTIFICATION ---
 game:GetService("StarterGui"):SetCore("SendNotification", {

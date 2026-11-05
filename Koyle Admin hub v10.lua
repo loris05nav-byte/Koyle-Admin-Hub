@@ -645,10 +645,102 @@ end)
 addToggle("5. 🎇 Dash (Click/Touch)", function(a) states.dash = a end)
 mouse.Button1Down:Connect(function() if states.dash and getRoot() then getRoot().CFrame = CFrame.new(mouse.Hit.Position + Vector3.new(0,3,0)) end end)
 
-addToggle("6. 🛡️ God Mode", function(a)
-    states.godmode = a
-    connections["God"] = RunService.Heartbeat:Connect(function() if states.godmode and getHum() then getHum().Health = 100 end end)
-end)
+-- --- GOD MODE (FONCTIONNEL) ---
+-- Protections réellement actives côté client :
+--  1. Anti kill-brick / lave / pièges : CanTouch = false sur ton personnage, donc les zones
+--     de dégâts au toucher ne te détectent plus (le toucher est calculé sur ton client).
+--  2. Anti-void : si tu tombes sous la map, tu es replacé sur ta dernière position sûre.
+--  3. Anti-mort locale : l'état "Dead" est désactivé et le corps ne se démonte plus.
+-- Limite : les dégâts infligés directement par un script serveur (armes, abilities...) ne
+-- peuvent pas être bloqués depuis le client.
+local god = {
+    originalTouch = {},
+    humanoidOriginals = {},
+    connection = nil,
+    accumulator = 0,
+    lastSafeCFrame = nil,
+    SCAN_INTERVAL = 0.25,
+    VOID_MARGIN = 30,
+}
+
+local function godProtectCharacter(character)
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if god.originalTouch[part] == nil then
+                god.originalTouch[part] = part.CanTouch
+            end
+            part.CanTouch = false
+        end
+    end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid and not god.humanoidOriginals[humanoid] then
+        god.humanoidOriginals[humanoid] = {
+            breakJoints = humanoid.BreakJointsOnDeath,
+            deadEnabled = humanoid:GetStateEnabled(Enum.HumanoidStateType.Dead),
+        }
+        pcall(function()
+            humanoid.BreakJointsOnDeath = false
+            humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        end)
+    end
+end
+
+local function godAntiVoid()
+    local root, humanoid = getRoot(), getHum()
+    if not root or not humanoid then return end
+
+    local voidY = Workspace.FallenPartsDestroyHeight + god.VOID_MARGIN
+    if root.Position.Y < voidY then
+        if god.lastSafeCFrame then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.CFrame = god.lastSafeCFrame + Vector3.new(0, 4, 0)
+        end
+    elseif humanoid.FloorMaterial ~= Enum.Material.Air then
+        god.lastSafeCFrame = root.CFrame
+    end
+end
+
+local function setGodMode(active)
+    states.godmode = active
+    if god.connection then
+        god.connection:Disconnect()
+        god.connection = nil
+    end
+
+    if active then
+        god.accumulator = god.SCAN_INTERVAL
+        god.connection = RunService.Heartbeat:Connect(function(dt)
+            if not states.godmode then return end
+            godAntiVoid()
+            god.accumulator += dt
+            if god.accumulator >= god.SCAN_INTERVAL then
+                god.accumulator = 0
+                local character = getChar()
+                if character then godProtectCharacter(character) end
+            end
+        end)
+    else
+        for part, wasTouchable in pairs(god.originalTouch) do
+            if part.Parent then
+                pcall(function() part.CanTouch = wasTouchable end)
+            end
+        end
+        god.originalTouch = {}
+        for humanoid, original in pairs(god.humanoidOriginals) do
+            if humanoid.Parent then
+                pcall(function()
+                    humanoid.BreakJointsOnDeath = original.breakJoints
+                    humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, original.deadEnabled)
+                end)
+            end
+        end
+        god.humanoidOriginals = {}
+        god.lastSafeCFrame = nil
+    end
+end
+
+addToggle("6. 🛡️ God Mode", setGodMode)
 
 addToggle("7. ⚡ Lightning Speed", function(a) if getHum() then getHum().WalkSpeed = a and 70 or 16 end end)
 
@@ -1726,6 +1818,7 @@ local function closeAdminPanelPermanently()
     stopMovingESP()
     setAntiAFK(false)
     setFPSBoost(false)
+    setGodMode(false)
     setUntouchable(false)
     removePlayerESP()
 

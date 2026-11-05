@@ -1669,6 +1669,51 @@ end
 
 addToggle("18. 🚀 FPS Boost", setFPSBoost)
 
+-- --- UNTOUCHABLE ---
+-- Le personnage ne bloque plus rien (CanCollide = false) et ne déclenche plus les zones
+-- au toucher (CanTouch = false : lave, pièges, kill bricks). Valeurs d'origine restaurées à l'arrêt.
+local untouchableOriginals = {}
+local untouchableConnection = nil
+
+local function applyUntouchable()
+    local character = getChar()
+    if not character then return end
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if untouchableOriginals[part] == nil then
+                untouchableOriginals[part] = { collide = part.CanCollide, touch = part.CanTouch }
+            end
+            part.CanCollide = false
+            part.CanTouch = false
+        end
+    end
+end
+
+local function setUntouchable(active)
+    if untouchableConnection then
+        untouchableConnection:Disconnect()
+        untouchableConnection = nil
+    end
+
+    if active then
+        applyUntouchable()
+        -- Réappliqué à chaque frame physique : Roblox remet CanCollide sur certaines parties
+        untouchableConnection = RunService.Stepped:Connect(applyUntouchable)
+    else
+        for part, original in pairs(untouchableOriginals) do
+            if part.Parent then
+                pcall(function()
+                    part.CanCollide = original.collide
+                    part.CanTouch = original.touch
+                end)
+            end
+        end
+        untouchableOriginals = {}
+    end
+end
+
+addToggle("19. 🫥 Untouchable (No Collide)", setUntouchable)
+
 -- Permanent script shutdown logic (OPTIMIZED - 0 WORKSPACE SCANS)
 local scriptClosed = false
 local function closeAdminPanelPermanently()
@@ -1682,6 +1727,7 @@ local function closeAdminPanelPermanently()
     stopMovingESP()
     setAntiAFK(false)
     setFPSBoost(false)
+    setUntouchable(false)
     removePlayerESP()
 
     for name, connection in pairs(connections) do
@@ -1762,7 +1808,7 @@ local function resetKeyPermanently()
     end)
 end
 
-addToggle("19. 🔑 Reset Key (Test)", function()
+addToggle("20. 🔑 Reset Key (Test)", function()
     resetConfirm.Visible = true
 end)
 cancelResetBtn.MouseButton1Click:Connect(function()

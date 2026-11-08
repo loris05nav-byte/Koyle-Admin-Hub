@@ -2079,6 +2079,8 @@ local function resetKeyPermanently()
 
     -- 2. Révoque l'autorisation de la session
     _G[ProtectionConfig.SecretKey] = nil
+    -- Oublie aussi la clé mémorisée en mémoire (sinon elle revient dans la même session)
+    _G.KoyleKeyCache = nil
 
     -- 3. Supprime définitivement la clé enregistrée
     local keyFile = ProtectionConfig.KeyFileName

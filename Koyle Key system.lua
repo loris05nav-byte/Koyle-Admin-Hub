@@ -105,34 +105,92 @@ local function cacheLink()
     return true, cachedLink
 end
 
+-- Résultat de la vérification : ok, message, kind
+--   "valid"   : clé acceptée par le serveur
+--   "invalid" : clé refusée par le serveur (la clé sauvegardée est oubliée)
+--   "offline" : serveur injoignable / erreur HTTP (une clé validée récemment reste utilisable)
+--   "error"   : réponse inattendue ou vérification d'intégrité échouée (rien n'est cru)
 local function redeemKey(key)
     local nonce = generateNonce()
     local body = {identifier = lDigest(fGetHwid()), key = key}
     if useNonce then body.nonce = nonce end
-    
+
     local response, err = safeRequest({
         Url = host .. "/public/redeem/" .. fToString(Config.ServiceId),
         Method = "POST",
         Body = lEncode(body),
         Headers = {["Content-Type"] = "application/json"}
     })
-    
-    if response and response.StatusCode == 200 then
-        local decoded = lDecode(response.Body)
-        if decoded.success and decoded.data.valid then
-            if useNonce then
-                if decoded.data.hash == lDigest("true" .. "-" .. nonce .. "-" .. Config.PlatoSecret) then 
-                    if writefile then writefile(Config.KeyFileName, key) end
-                    return true, "Success" 
-                end
-                return false, "Integrity Check Failed"
-            end
-            if writefile then writefile(Config.KeyFileName, key) end
-            return true, "Success"
-        end
-        return false, decoded.message or "Invalid Key"
+
+    if not response then
+        return false, "Server unreachable: " .. tostring(err), "offline"
     end
-    return false, err or "Server Error"
+    if response.StatusCode == 429 then
+        return false, "Too many attempts, wait a moment and retry", "offline"
+    end
+    if response.StatusCode ~= 200 then
+        return false, "Server error (HTTP " .. tostring(response.StatusCode) .. ")", "offline"
+    end
+
+    local okDecode, decoded = pcall(lDecode, response.Body)
+    if not okDecode or type(decoded) ~= "table" then
+        return false, "Invalid server response", "error"
+    end
+    if not (decoded.success and decoded.data and decoded.data.valid) then
+        return false, tostring(decoded.message or "Invalid key"), "invalid"
+    end
+    if useNonce and decoded.data.hash ~= lDigest("true-" .. nonce .. "-" .. Config.PlatoSecret) then
+        return false, "Integrity check failed", "error"
+    end
+    return true, "Success", "valid"
+end
+
+-------------------------------------------------------------------------------
+--! SAVED KEY (mémorisée entre les sessions)
+-------------------------------------------------------------------------------
+-- Fichier JSON : {"key": "...", "verified": <timestamp de la dernière validation réussie>}
+local OFFLINE_GRACE = 3 * 24 * 60 * 60 -- lancement hors ligne toléré 3 jours après la dernière validation
+
+local function loadSavedKey()
+    local raw = nil
+    pcall(function()
+        if type(isfile) == "function" and type(readfile) == "function" and isfile(Config.KeyFileName) then
+            raw = readfile(Config.KeyFileName)
+        end
+    end)
+    if type(raw) == "string" and raw:match("%S") then
+        local okDecode, data = pcall(lDecode, raw)
+        if okDecode and type(data) == "table" and type(data.key) == "string" then
+            return { key = data.key, verified = tonumber(data.verified) or 0 }
+        end
+        -- Ancien format : le fichier contenait seulement la clé
+        return { key = (raw:gsub("%s+", "")), verified = 0 }
+    end
+    -- Secours pour la même session si le système de fichiers ne répond pas
+    local cache = _G.KoyleKeyCache
+    if type(cache) == "table" and type(cache.key) == "string" then
+        return cache
+    end
+    return nil
+end
+
+local function saveKey(key, verified)
+    local record = { key = key, verified = verified }
+    _G.KoyleKeyCache = record
+    if type(writefile) == "function" then
+        pcall(writefile, Config.KeyFileName, lEncode(record))
+    end
+end
+
+local function forgetKey()
+    _G.KoyleKeyCache = nil
+    pcall(function()
+        if type(delfile) == "function" and type(isfile) == "function" and isfile(Config.KeyFileName) then
+            delfile(Config.KeyFileName)
+        elseif type(writefile) == "function" then
+            writefile(Config.KeyFileName, "")
+        end
+    end)
 end
 
 -------------------------------------------------------------------------------
@@ -178,26 +236,6 @@ local function StartMainScript()
         return false, "Runtime error: " .. firstLine
     end
     return true
-end
-
--- Lance le script et affiche l'erreur dans la page de clé si ça échoue
-local function LaunchFromKeyPage(ScreenGui, Status)
-    Status.Text = "Loading script..."
-    local ok, err = StartMainScript()
-    if ok then
-        ScreenGui:Destroy()
-    else
-        warn("[Koyle Key System] " .. tostring(err))
-        Status.Text = tostring(err)
-        Status.TextColor3 = Color3.fromRGB(255, 120, 120)
-        Status.TextWrapped = true
-        Status.TextScaled = true
-        -- Copie automatiquement l'erreur pour pouvoir la partager
-        if setclipboard or toclipboard then
-            pcall(setclipboard or toclipboard, tostring(err))
-            Status.Text = tostring(err) .. " (copied)"
-        end
-    end
 end
 
 -------------------------------------------------------------------------------
@@ -422,54 +460,85 @@ local function CreateGUI()
     MainFrame.Size = UDim2.new(0, PANEL_W, 0, panelH)
     addStuds(MainFrame, PANEL_W, panelH)
 
-    VerifyBtn.MouseButton1Click:Connect(function()
-        local key = KeyInput.Text
-        if key == "" then Status.Text = "Enter a key!"; Status.TextColor3 = BRICK.Warning; return end
-        Status.Text = "Verifying..."
-        Status.TextColor3 = BRICK.TextSoft
-        local success, msg = redeemKey(key)
-        if success then
-            Status.Text = "Success! Loading..."
-            Status.TextColor3 = BRICK.Success
-            task.wait(0.5)
-            LaunchFromKeyPage(ScreenGui, Status)
+    -- Une seule vérification à la fois : évite de lancer le hub deux fois
+    local busy = false
+
+    local function setStatus(text, color)
+        Status.Text = text
+        Status.TextColor3 = color or BRICK.TextSoft
+    end
+
+    local function launchHub()
+        setStatus("Loading script...", BRICK.Success)
+        local ok, err = StartMainScript()
+        if ok then
+            ScreenGui:Destroy()
         else
-            Status.Text = msg
-            Status.TextColor3 = BRICK.Error
+            busy = false
+            setStatus(tostring(err), BRICK.Error)
+            if setclipboard or toclipboard then
+                pcall(setclipboard or toclipboard, tostring(err))
+                setStatus(tostring(err) .. " (copied)", BRICK.Error)
+            end
         end
+    end
+
+    -- saved : enregistrement précédent (ou nil), sert au mode hors ligne
+    local function verify(key, saved)
+        if busy then return end
+        busy = true
+        setStatus("Verifying...", BRICK.TextSoft)
+
+        local ok, msg, kind = redeemKey(key)
+        if ok then
+            saveKey(key, os.time())
+            setStatus("Success! Loading...", BRICK.Success)
+            task.wait(0.3)
+            launchHub()
+            return
+        end
+
+        local isSavedKey = saved ~= nil and saved.key == key
+        if kind == "offline" and isSavedKey and saved.verified > 0
+            and (os.time() - saved.verified) < OFFLINE_GRACE then
+            setStatus("Server unreachable, using your saved key (offline)", BRICK.Warning)
+            task.wait(0.5)
+            launchHub()
+            return
+        end
+
+        if kind == "invalid" and isSavedKey then
+            forgetKey()
+        end
+        busy = false
+        setStatus(msg, BRICK.Error)
+    end
+
+    VerifyBtn.MouseButton1Click:Connect(function()
+        local key = KeyInput.Text:match("^%s*(.-)%s*$")
+        if key == "" then
+            setStatus("Enter a key!", BRICK.Warning)
+            return
+        end
+        task.spawn(verify, key, loadSavedKey())
     end)
 
     GetKeyBtn.MouseButton1Click:Connect(function()
-        Status.Text = "Getting Link..."
-        Status.TextColor3 = BRICK.TextSoft
+        setStatus("Getting Link...", BRICK.TextSoft)
         local success, link = cacheLink()
         if success then
             fSetClipboard(link)
-            Status.Text = "Link Copied!"
-            Status.TextColor3 = BRICK.Success
+            setStatus("Link Copied!", BRICK.Success)
         else
-            Status.Text = tostring(link) 
-            Status.TextColor3 = BRICK.Error
+            setStatus(tostring(link), BRICK.Error)
         end
     end)
 
-    if isfile and isfile(Config.KeyFileName) then
-        local savedKey = readfile(Config.KeyFileName)
-        if savedKey ~= "" then
-            Status.Text = "Found saved key, verifying..."
-            task.spawn(function()
-                local success, msg = redeemKey(savedKey)
-                if success then
-                    Status.Text = "Auto-login success!"
-                    Status.TextColor3 = BRICK.Success
-                    task.wait(0.5)
-                    LaunchFromKeyPage(ScreenGui, Status)
-                else
-                    Status.Text = "Saved key expired or invalid."
-                    Status.TextColor3 = BRICK.Warning
-                end
-            end)
-        end
+    -- Connexion automatique avec la clé mémorisée
+    local saved = loadSavedKey()
+    if saved and saved.key ~= "" then
+        setStatus("Found saved key, checking...", BRICK.TextSoft)
+        task.spawn(verify, saved.key, saved)
     end
 end
 
@@ -479,8 +548,9 @@ _G.KoyleKeySystem_Show = CreateGUI
 local player = game:GetService("Players").LocalPlayer
 local pGui = player:WaitForChild("PlayerGui")
 
+-- Le hub est déjà ouvert : on ne le recharge pas (évite deux hubs superposés)
 if pGui:FindFirstChild(Config.MainGuiName) then
-    StartMainScript() 
+    warn("[Koyle Key System] Hub already running.")
     return
 end
 

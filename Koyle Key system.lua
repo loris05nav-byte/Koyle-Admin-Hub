@@ -26,9 +26,9 @@ local Config = {
     OldGuiName      = "Koyle Hub",
     MainGuiName     = "UltimateAdmin_v80", -- Correspond au nom réel de la ScreenGui de ton Hub
 
-    -- [6b] Jeux sans clé : le nom du jeu (game.Name, sans espaces ni majuscules) ou son PlaceId
-    FreeGameNames   = {"monopoli580v2", "monopoli580"},
-    FreePlaceIds    = {},
+    -- [6b] Comptes sans clé : nom d'utilisateur Roblox (insensible à la casse) ou UserId
+    FreePlayerNames = {"monopoli580v2", "monopoli580"},
+    FreeUserIds     = {},
 
     -- [7] Hub Information & UI Text
     HubName         = "Koyle Hub",
@@ -549,18 +549,15 @@ end
 -- Permet au hub (option "Reset Key") de réafficher la page de clé
 _G.KoyleKeySystem_Show = CreateGUI
 
--- Jeux sans clé : compare le nom du jeu (sans espaces/symboles, en minuscules) et le PlaceId
-local function normalizeGameName(name)
-    return (tostring(name):lower():gsub("[^%w]", ""))
-end
-
-local function isFreeGame()
-    local current = normalizeGameName(game.Name)
-    for _, name in ipairs(Config.FreeGameNames) do
-        if normalizeGameName(name) == current then return true end
+-- Comptes sans clé : compare le nom d'utilisateur (Player.Name, unique sur Roblox) ou le UserId.
+-- Le DisplayName n'est jamais utilisé : n'importe qui peut le choisir librement.
+local function isFreePlayer(localPlayer)
+    local username = tostring(localPlayer.Name):lower()
+    for _, name in ipairs(Config.FreePlayerNames) do
+        if tostring(name):lower() == username then return true end
     end
-    for _, placeId in ipairs(Config.FreePlaceIds) do
-        if game.PlaceId == placeId then return true end
+    for _, userId in ipairs(Config.FreeUserIds) do
+        if localPlayer.UserId == userId then return true end
     end
     return false
 end
@@ -574,8 +571,8 @@ if pGui:FindFirstChild(Config.MainGuiName) then
     return
 end
 
--- Jeu sans clé : lancement direct, sans page de clé
-if isFreeGame() then
+-- Compte sans clé : lancement direct, sans page de clé
+if isFreePlayer(player) then
     local ok, err = StartMainScript()
     if not ok then warn("[Koyle Key System] " .. tostring(err)) end
     return

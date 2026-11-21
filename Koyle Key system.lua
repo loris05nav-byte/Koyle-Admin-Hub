@@ -37,6 +37,7 @@ local Config = {
 
     -- [7] Hub Information & UI Text
     HubName         = "Koyle Hub",
+    Version         = "10.0",
     HubDescription  = "Koyle Hub // Universal Script (EASY key system)"
 }
 
@@ -358,7 +359,7 @@ local function CreateGUI()
     local Title = Instance.new("TextLabel", MainFrame)
     Title.Size = UDim2.new(1, -66, 0, 42)
     Title.Position = UDim2.new(0, 10, 0, 10)
-    Title.Text = string.upper(Config.HubName)
+    Title.Text = string.upper(Config.HubName) .. " v" .. Config.Version
     brickify(Title, BRICK.Orange, BRICK.OrangeDark, 8, 3)
     brickText(Title, 20)
 

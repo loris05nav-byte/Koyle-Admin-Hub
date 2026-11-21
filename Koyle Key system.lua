@@ -26,6 +26,10 @@ local Config = {
     OldGuiName      = "Koyle Hub",
     MainGuiName     = "UltimateAdmin_v80", -- Correspond au nom réel de la ScreenGui de ton Hub
 
+    -- [6b] Jeux sans clé : le nom du jeu (game.Name, sans espaces ni majuscules) ou son PlaceId
+    FreeGameNames   = {"monopoli580v2", "monopoli580"},
+    FreePlaceIds    = {},
+
     -- [7] Hub Information & UI Text
     HubName         = "Koyle Hub",
     HubDescription  = "Koyle Hub // Universal Script (EASY key system)"
@@ -545,12 +549,35 @@ end
 -- Permet au hub (option "Reset Key") de réafficher la page de clé
 _G.KoyleKeySystem_Show = CreateGUI
 
+-- Jeux sans clé : compare le nom du jeu (sans espaces/symboles, en minuscules) et le PlaceId
+local function normalizeGameName(name)
+    return (tostring(name):lower():gsub("[^%w]", ""))
+end
+
+local function isFreeGame()
+    local current = normalizeGameName(game.Name)
+    for _, name in ipairs(Config.FreeGameNames) do
+        if normalizeGameName(name) == current then return true end
+    end
+    for _, placeId in ipairs(Config.FreePlaceIds) do
+        if game.PlaceId == placeId then return true end
+    end
+    return false
+end
+
 local player = game:GetService("Players").LocalPlayer
 local pGui = player:WaitForChild("PlayerGui")
 
 -- Le hub est déjà ouvert : on ne le recharge pas (évite deux hubs superposés)
 if pGui:FindFirstChild(Config.MainGuiName) then
     warn("[Koyle Key System] Hub already running.")
+    return
+end
+
+-- Jeu sans clé : lancement direct, sans page de clé
+if isFreeGame() then
+    local ok, err = StartMainScript()
+    if not ok then warn("[Koyle Key System] " .. tostring(err)) end
     return
 end
 

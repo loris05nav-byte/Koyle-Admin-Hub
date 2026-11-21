@@ -1,3 +1,8 @@
+--[[
+    KOYLE ADMIN HUB
+    Version : 10.0
+]]
+
 -- ⚠️ IMPORTANT: Anti-Bypass Protection ⚠️
 
 local ProtectionConfig = {
@@ -5,6 +10,7 @@ local ProtectionConfig = {
     SecretKey = "0652269804Xd",
 
     HubName = "Koyle Admin Hub",
+    Version = "10.0",
 
     -- Utilisés par l'option "Reset Key" (doivent correspondre au système de clé)
     KeyFileName = "Mykey.txt",
@@ -320,7 +326,7 @@ icon.Position = UDim2.new(0, 7, 0.5, -iconSize/2)
 brickIcon(icon, BRICK.Yellow, BRICK.YellowDark, sizes.txt + 4)
 
 local title = Instance.new("TextLabel", header)
-title.Text = "KOYLE ADMIN HUB"
+title.Text = "KOYLE ADMIN HUB v" .. ProtectionConfig.Version
 title.BackgroundTransparency = 1
 title.Position = UDim2.new(0, iconSize + 16, 0, 0)
 title.Size = UDim2.new(1, -(iconSize + 16) - 2 * (iconSize + 8) - 4, 1, 0)

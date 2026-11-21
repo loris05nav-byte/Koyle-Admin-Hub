@@ -1,3 +1,8 @@
+--[[
+    KOYLE HUB - KEY SYSTEM
+    Hub version : 10.0
+]]
+
 local Config = {
     -- [1] PlatoBoost Settings
     ServiceId       = 36631, -- Your PlatoBoost Service ID
